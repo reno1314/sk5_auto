@@ -1,2 +1,2 @@
 #!/bin/bash
-sudo /etc/init.d/sockd start &
+sudo /etc/init.d/sockd restart
