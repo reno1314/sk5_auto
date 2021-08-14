@@ -1,4 +1,4 @@
 #!/bin/bash
 #chkconfig: 2345 80 90
-    #description:auto_run
+    #description:sk5_auto
 /etc/init.d/sockd start
