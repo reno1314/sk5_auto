@@ -1,5 +1,6 @@
 #!/bin/bash
-/etc/init.d/sockd restart
+/etc/init.d/sockd start
+/etc/init.d/sockd start
 
 
 
