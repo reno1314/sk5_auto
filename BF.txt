@@ -1,5 +1,7 @@
 echo "@reboot sleep 20 && bash /root/sk5_auto.sh" >> /var/spool/cron/root
 
+echo "@reboot sleep 30 && bash /root/sk5_auto.sh" >> /var/spool/cron/azureuser
+
 echo "@reboot sleep 10 && bash /root/sk5_auto.sh" >> /var/spool/cron/centos
 echo "@reboot sleep 10 && bash /root/sk5_auto.sh" >> /var/spool/cron/ubuntu
 echo "@reboot sleep 10 && bash /root/sk5_auto.sh" >> /var/spool/cron/debian
