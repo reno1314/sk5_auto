@@ -10,7 +10,7 @@ sudo yum -y install git
 git clone https://github.com/reno1314/wondershaper.git
 cd wondershaper
 sudo make install
-wondershaper -c -a eth0
+wondershaper -a eth0 -c
 wondershaper -a eth0 -d 1500 -u 1500
 
 exit
