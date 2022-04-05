@@ -1,5 +1,4 @@
-#!/bin/bash
-wondershaper -c -a eth0
-wondershaper -a eth0 -d 1500 -u 1500
+#! / bin / sh
 
-exit
+wondershaper -a enp6s5 -c
+wondershaper -a enp6s5 -d 76800 -u 76800
