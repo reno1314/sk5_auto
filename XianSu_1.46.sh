@@ -4,8 +4,6 @@ touch sk5_auto_XS1.46.sh
 chmod +x sk5_auto_XS1.46.sh
 cat >>sk5_auto_XS1.46.sh<<EOF
 #!/bin/bash
-for((i=2;i<=30;i++));do /sbin/ip address add 10.0.0.$i/24 dev eth0;done
-/etc/init.d/sockd start
 wondershaper -a eth0 -c
 wondershaper -a eth0 -d 1500 -u 1500
 exit
