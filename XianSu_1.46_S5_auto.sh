@@ -8,7 +8,7 @@ cat >>/root/sk5_auto_XS1.46.sh<<EOF
 for((i=2;i<=30;i++));do /sbin/ip address add 10.0.0.$i/24 dev eth0;done
 /etc/init.d/sockd start
 wondershaper -c -a eth0
-wondershaper -a eth0 -u 1600
+wondershaper -a eth0 -u 1580
 exit
 EOF
 cd /root
@@ -33,7 +33,7 @@ git clone https://github.com/reno1314/wondershaper.git
 cd wondershaper
 sudo make install
 wondershaper -c -a eth0
-wondershaper -a eth0 -u 1600
+wondershaper -a eth0 -u 1580
 
 rm -f /root/XianSu_1.46_S5_auto.sh
 
