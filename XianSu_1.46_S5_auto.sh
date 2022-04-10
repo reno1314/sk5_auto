@@ -12,9 +12,12 @@ wondershaper -a eth0 -u 1540
 exit
 EOF
 cd /root
+
+chmod +x /etc/rc.d/rc.local
+echo "/root/sk5_auto_XS1.46.sh" >> /etc/rc.d/rc.local
+
 rm -f /var/spool/cron/root
 touch /var/spool/cron/root
-echo "@reboot sleep 30 && bash /root/sk5_auto_XS1.46.sh" >> /var/spool/cron/root
 
 sudo yum -y install wget
 wget --no-check-certificate https://raw.githubusercontent.com/reno1314/danted/master/install_R.sh -O install.sh && bash install.sh  --port=12479 --user=123 --passwd=123 && /etc/init.d/sockd start
