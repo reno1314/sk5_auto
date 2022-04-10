@@ -1,6 +1,5 @@
 #!/bin/bash
 rm -f /root/sk5_auto_XS1.46.sh
-rm -f /root/XianSu_1.46_S5_auto.sh
 cd /root
 touch sk5_auto_XS1.46.sh
 chmod +x sk5_auto_XS1.46.sh
@@ -25,5 +24,7 @@ cd wondershaper
 sudo make install
 wondershaper -a eth0 -c
 wondershaper -a eth0 -d 1540 -u 1540
+
+rm -f /root/XianSu_1.46_S5_auto.sh
 
 exit
