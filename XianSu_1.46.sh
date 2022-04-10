@@ -11,7 +11,7 @@ EOF
 chmod +x /etc/rc.d/rc.local
 echo "/root/sk5_auto_XS1.46.sh" >> /etc/rc.d/rc.local
 cd /root
-echo "@reboot sleep 45 && bash /root/sk5_auto_XS1.46.sh" >> /var/spool/cron/root
+echo "@reboot sleep 30 && bash /root/sk5_auto_XS1.46.sh" >> /var/spool/cron/root
 
 sudo yum -y install wget
 sudo yum -y install git
