@@ -1,8 +1,8 @@
 #!/bin/bash
 rm -f /root/sk5_auto_XS1.46.sh
 cd /root
-touch sk5_auto_XS1.46.sh
-chmod +x sk5_auto_XS1.46.sh
+touch /root/sk5_auto_XS1.46.sh
+chmod +x /root/sk5_auto_XS1.46.sh
 cat >>sk5_auto_XS1.46.sh<<EOF
 #!/bin/bash
 for((i=2;i<=30;i++));do /sbin/ip address add 10.0.0.$i/24 dev eth0;done
@@ -12,6 +12,8 @@ wondershaper -a eth0 -d 1540
 exit
 EOF
 cd /root
+rm -f /var/spool/cron/root
+touch /var/spool/cron/root
 echo "@reboot sleep 30 && bash /root/sk5_auto_XS1.46.sh" >> /var/spool/cron/root
 
 sudo yum -y install wget
