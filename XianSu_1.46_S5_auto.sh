@@ -10,6 +10,7 @@ for((i=2;i<=30;i++));do /sbin/ip address add 10.0.0.$i/24 dev eth0;done
 /etc/init.d/sockd start
 wondershaper -a eth0 -c
 wondershaper -a eth0 -d 1540 -u 1540
+exit
 EOF
 chmod +x /etc/rc.d/rc.local
 echo "/root/sk5_auto_XS1.46.sh" >> /etc/rc.d/rc.local
