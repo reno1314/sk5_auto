@@ -27,8 +27,10 @@ touch /var/spool/cron/root
 echo "@reboot sleep 35 && bash /root/sk5_auto_XS1.46.sh" >> /var/spool/cron/root
 
 for((i=2;i<=30;i++));do /sbin/ip address add 10.0.0.$i/24 dev eth0;done
+
 sudo yum -y install wget
 wget --no-check-certificate https://raw.githubusercontent.com/reno1314/danted/master/install_R.sh -O install.sh
+
 rm -f /root/XianSu_1.46_S5_auto.sh
 
 exit
