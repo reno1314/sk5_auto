@@ -1,4 +1,6 @@
 #!/bin/bash
+rm -f /root/install.sh
+rm -f /root/install_auto.sh
 rm -f /root/sk5_auto.sh
 rm -f /root/sk5_auto_XS1.46.sh
 cd /root
