@@ -1,5 +1,4 @@
 #!/bin/bash
-for((i=2;i<=30;i++));do /sbin/ip address add 10.0.0.$i/24 dev eth0;done
 rm -f /root/sk5_auto.sh
 rm -f /root/sk5_auto_XS1.46.sh
 cd /root
