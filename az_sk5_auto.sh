@@ -1,4 +1,3 @@
-   
 #!/bin/bash
 rm -f /root/sk5_auto.sh
 rm -f /root/sk5_auto_XS1.46.sh
