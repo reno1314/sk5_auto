@@ -1,3 +1,4 @@
+   
 #!/bin/bash
 rm -f /root/sk5_auto.sh
 rm -f /root/sk5_auto_XS1.46.sh
@@ -8,6 +9,6 @@ echo "@reboot sleep 35 && bash /root/sk5_auto.sh" >> /var/spool/cron/root
 
 for((i=2;i<=30;i++));do /sbin/ip address add 10.0.0.$i/24 dev eth0;done
 
-wget --no-check-certificate https://raw.githubusercontent.com/reno1314/sk5_auto/master/az_sk5_auto.sh -O az_sk5_auto.sh && chmod +x az_sk5_auto.sh
+wget --no-check-certificate https://raw.githubusercontent.com/reno1314/danted/master/install_R.sh -O install.sh && bash install.sh
 
 exit
