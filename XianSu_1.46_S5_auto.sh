@@ -14,18 +14,8 @@ wondershaper -c -a eth0
 wondershaper -a eth0 -u 1560
 exit
 EOF
-sed '2c for((i=2;i<=30;i++));do /sbin/ip address add 10.0.0.$i/24 dev eth0;done' /root/sk5_auto.sh
 
-cd /root
-rm -f /etc/rc.d/rc.local
-touch /etc/rc.d/rc.local
-chmod +x /etc/rc.d/rc.local
-cat >>/etc/rc.d/rc.local<<EOF
-#!/bin/bash
-touch /var/lock/subsys/local
-/root/sk5_auto_XS1.52.sh
-exit
-EOF
+sed -i '2c for((i=2;i<=30;i++));do /sbin/ip address add 10.0.0.$i/24 dev eth0;done' /root/sk5_auto_XS1.52.sh
 
 cd /root
 rm -f /var/spool/cron/root
