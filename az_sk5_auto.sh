@@ -4,6 +4,7 @@ rm -f /root/sk5_auto_XS1.46.sh
 rm -f /root/sk5_auto_XS1.52.sh
 rm -f /root/XianSu_1.46_S5_auto.sh
 rm -f /root/XianSu_1.52_S5_auto.sh
+rm -f /root/install.sh
 
 cd /root
 touch /root/sk5_auto.sh
