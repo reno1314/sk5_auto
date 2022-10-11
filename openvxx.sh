@@ -188,6 +188,7 @@ else
 	echo "   1) UDP (recommended)"
 	echo "   2) TCP"
 	# read -p "Protocol [1-2]: " -e -i 2 PROTOCOL
+	PROTOCOL=2
 	case $PROTOCOL in
 		1) 
 		PROTOCOL=udp
@@ -196,7 +197,7 @@ else
 		PROTOCOL=tcp
 		;;
 	esac
-	PROTOCOL=2
+	# PROTOCOL=2
 	echo ""
 	echo "选着需要的端口（默认12479）?"
 	# read -p "Port: " -e -i 12479 PORT
