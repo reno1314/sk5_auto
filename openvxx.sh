@@ -187,8 +187,8 @@ else
 	echo "选着要用的传输方式，建议使用UDP速度更快"
 	echo "   1) UDP (recommended)"
 	echo "   2) TCP"
-	read -p "Protocol [1-2]: " -e -i 2 PROTOCOL
 	Protocol=2
+	read -p "Protocol [1-2]: " -e -i 2 PROTOCOL
 	case $PROTOCOL in
 		1) 
 		PROTOCOL=udp
