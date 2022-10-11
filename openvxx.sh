@@ -188,7 +188,7 @@ else
 	echo "   1) UDP (recommended)"
 	echo "   2) TCP"
 	# read -p "Protocol [1-2]: " -e -i 2 PROTOCOL
-	PROTOCOL=2
+	Protocol [1-2]=2
 	case $PROTOCOL in
 		1) 
 		PROTOCOL=udp
