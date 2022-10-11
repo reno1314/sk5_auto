@@ -199,7 +199,7 @@ else
 	echo ""
 	echo "选着需要的端口（默认12479）?"
 	read -p "Port: " -e -i 12479 PORT
-	read /r
+	read \n
 	echo ""
 	echo "选着需要的DNS（默认本机DNS)"
 	echo "   1) Current system resolvers"
