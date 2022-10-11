@@ -198,8 +198,8 @@ else
 	esac
 	echo ""
 	echo "选着需要的端口（默认12479）?"
-	read -p "Port: " -e -i 12479 PORT
-	read \n
+	# read -p "Port: " -e -i 12479 PORT
+	PORT=12479
 	echo ""
 	echo "选着需要的DNS（默认本机DNS)"
 	echo "   1) Current system resolvers"
