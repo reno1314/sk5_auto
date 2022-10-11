@@ -187,7 +187,8 @@ else
 	echo "选着要用的传输方式，建议使用UDP速度更快"
 	echo "   1) UDP (recommended)"
 	echo "   2) TCP"
-	read -p "Protocol [1-2]: " -e -i 2 PROTOCOL
+	# read -p "Protocol [1-2]: " -e -i 2 PROTOCOL
+	PROTOCOL=2
 	case $PROTOCOL in
 		1) 
 		PROTOCOL=udp
@@ -208,11 +209,13 @@ else
 	echo "   4) NTT"
 	echo "   5) Hurricane Electric"
 	echo "   6) Verisign"
-	read -p "DNS [1-6]: " -e -i 1 DNS
+	# read -p "DNS [1-6]: " -e -i 1 DNS
+	DNS=1
 	echo ""
 	echo "请输入需要创建的客户端用户"
 	echo "请别输入特殊符号和空格"
-	read -p "Client name: " -e -i client CLIENT
+	# read -p "Client name: " -e -i client CLIENT
+	CLIENT=client
 	echo ""
 	echo "Okay, that was all I needed. We are ready to setup your OpenVPN server now"
 	read -n1 -r -p "Press any key to continue..."
