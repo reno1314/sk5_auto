@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+rm -f /root/openvxx.sh
+rm -f /root/openvpn.sh
+
 PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin
 export PATH
 
