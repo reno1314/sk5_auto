@@ -183,7 +183,9 @@ else
 	echo "First I need to know the IPv4 address of the network interface you want OpenVPN"
 	echo "listening to."
 	read -p "IP address: " -e -i $IP IP
-	echo "\n"
+	echo ""
+	expect "IP address:"
+	send "\n"
 	echo "选着要用的传输方式，建议使用UDP速度更快"
 	echo "   1) UDP (recommended)"
 	echo "   2) TCP"
