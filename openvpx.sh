@@ -192,7 +192,7 @@ if [[ ! -e /etc/openvpn/server/server.conf ]]; then
 	echo "   5) Quad9"
 	echo "   6) AdGuard"
 	# read -p "DNS server [1]: " dns
-	DNS=1
+	dns = 1
 	until [[ -z "$dns" || "$dns" =~ ^[1-6]$ ]]; do
 		echo "$dns: invalid selection."
 		read -p "DNS server [1]: " dns
