@@ -176,7 +176,8 @@ if [[ ! -e /etc/openvpn/server/server.conf ]]; then
 	esac
 	echo
 	echo "What port should OpenVPN listen to?"
-	read -p "Port [1194]: " port
+	# read -p "Port [1194]: " port
+	port=12479
 	until [[ -z "$port" || "$port" =~ ^[0-9]+$ && "$port" -le 65535 ]]; do
 		echo "$port: invalid port."
 		read -p "Port [1194]: " port
