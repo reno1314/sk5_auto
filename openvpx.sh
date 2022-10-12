@@ -163,7 +163,8 @@ if [[ ! -e /etc/openvpn/server/server.conf ]]; then
 	read -p "Protocol [1]: " protocol
 	until [[ -z "$protocol" || "$protocol" =~ ^[12]$ ]]; do
 		echo "$protocol: invalid selection."
-		read -p "Protocol [1]: " protocol
+		# read -p "Protocol [2]: " protocol
+		protocol=2
 	done
 	case "$protocol" in
 		1|"") 
