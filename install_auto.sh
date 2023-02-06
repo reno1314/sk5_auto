@@ -1,6 +1,7 @@
 #!/bin/bash
 rm -f /root/sk5_auto.sh
 rm -f /root/install_auto.sh
+rm -f /root/install_auto_tcp.sh
 rm -f /root/az_sk5_auto.sh
 rm -f /root/sk5_auto_XS1.46.sh
 rm -f /root/sk5_auto_XS1.52.sh
