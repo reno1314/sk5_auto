@@ -94,4 +94,8 @@ else
     echo "Error: Unsupported system."
     exit 1
 fi
+
+/etc/init.d/sockd start
+sudo /etc/init.d/3proxy start
+
 exit
