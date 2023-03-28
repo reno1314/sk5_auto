@@ -51,6 +51,14 @@ if [[ $IP =~ ^10\.0\.0\..* ]]; then
     SCRIPT_PATH="/root/xnwk_30.sh"
     SCRIPT_NAME="xnwk_30.sh"
     if [ -n "$NIC" ] && [ ! -f "$SCRIPT_PATH" ]; then
+        sudo ip addr add 10.0.0.5/24 dev $NIC:1
+        sudo ip addr add 10.0.0.6/24 dev $NIC:2
+        sudo ip addr add 10.0.0.7/24 dev $NIC:3
+        sudo ip addr add 10.0.0.8/24 dev $NIC:4
+        sudo ip addr add 10.0.0.11/24 dev $NIC:5
+        sudo ip addr add 10.0.0.12/24 dev $NIC:6
+        sudo ip addr add 10.0.0.13/24 dev $NIC:7
+        sudo ip addr add 10.0.0.14/24 dev $NIC:8
         echo "#!/bin/bash" > "$SCRIPT_PATH"
         echo "sudo ip addr add 10.0.0.5/24 dev $NIC:1" >> "$SCRIPT_PATH"
         echo "sudo ip addr add 10.0.0.6/24 dev $NIC:2" >> "$SCRIPT_PATH"
@@ -75,6 +83,14 @@ if [[ $IP =~ ^10\.0\.0\..* ]]; then
     SCRIPT_PATH="/root/xnwk_30.sh"
     SCRIPT_NAME="xnwk_30.sh"
     if [ -n "$NIC" ] && [ ! -f "$SCRIPT_PATH" ]; then
+        sudo ip addr add 10.0.0.5/24 dev $NIC:1
+        sudo ip addr add 10.0.0.6/24 dev $NIC:2
+        sudo ip addr add 10.0.0.7/24 dev $NIC:3
+        sudo ip addr add 10.0.0.8/24 dev $NIC:4
+        sudo ip addr add 10.0.0.11/24 dev $NIC:5
+        sudo ip addr add 10.0.0.12/24 dev $NIC:6
+        sudo ip addr add 10.0.0.13/24 dev $NIC:7
+        sudo ip addr add 10.0.0.14/24 dev $NIC:8
         echo "#!/bin/bash" > "$SCRIPT_PATH"
         echo "sudo ip addr add 10.0.0.5/24 dev $NIC:1" >> "$SCRIPT_PATH"
         echo "sudo ip addr add 10.0.0.6/24 dev $NIC:2" >> "$SCRIPT_PATH"
