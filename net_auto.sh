@@ -1,5 +1,15 @@
 #!/bin/bash
 
+rm -f /root/xnwk_30.sh
+rm -f /root/sk5_auto.sh
+rm -f /root/install_auto.sh
+rm -f /root/install_auto_tcp.sh
+rm -f /root/az_sk5_auto.sh
+rm -f /root/sk5_auto_XS1.46.sh
+rm -f /root/sk5_auto_XS1.52.sh
+rm -f /root/XianSu_1.46_S5_auto.sh
+rm -f /root/XianSu_1.52_S5_auto.sh
+
 # Check if user is root
 if [ $(id -u) != "0" ]; then
     echo "Error: You must be root to run this script, please use root to install"
