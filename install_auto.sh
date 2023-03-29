@@ -1,5 +1,7 @@
 #!/bin/bash
+rm -f /root/xnwk_30.sh
 rm -f /root/sk5_auto.sh
+rm -f /root/install.sh
 rm -f /root/install_auto.sh
 rm -f /root/install_auto_tcp.sh
 rm -f /root/az_sk5_auto.sh
@@ -7,7 +9,7 @@ rm -f /root/sk5_auto_XS1.46.sh
 rm -f /root/sk5_auto_XS1.52.sh
 rm -f /root/XianSu_1.46_S5_auto.sh
 rm -f /root/XianSu_1.52_S5_auto.sh
-rm -f /root/install.sh
+sed -i '/@reboot sleep 35 \&\& bash \/root\/sk5_auto.sh/d' /var/spool/cron/root
 
 cd /root
 touch /root/sk5_auto.sh
