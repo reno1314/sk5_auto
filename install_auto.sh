@@ -11,6 +11,7 @@ rm -f /root/sk5_auto_XS1.52.sh
 rm -f /root/XianSu_1.46_S5_auto.sh
 rm -f /root/XianSu_1.52_S5_auto.sh
 sed -i '/@reboot sleep 35 \&\& bash \/root\/sk5_auto.sh/d' /var/spool/cron/root
+crontab -l | grep -v '@reboot sleep 35 && /root/xnwk_30.sh'  | crontab -
 
 # Check if user is root
 if [ $(id -u) != "0" ]; then
