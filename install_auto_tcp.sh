@@ -128,4 +128,16 @@ sudo yum -y install wget && wget --no-check-certificate https://raw.githubuserco
 rm -f /root/XianSu_1.46_S5_auto.sh
 rm -f /root/XianSu_1.52_S5_auto.sh
 
+# 判断主网卡的内网地址是否为 10.0.0.*
+if [[ $IP =~ ^10\.0\.0\..* ]]; then
+
+    echo "内网地址为 10.0.0.*，准备重启服务器..."
+    # 执行重启服务器的命令
+    reboot
+    exit
+else
+    echo "内网地址不是 10.0.0.*，退出脚本。"
+    exit
+fi
+
 exit
