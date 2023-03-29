@@ -9,6 +9,7 @@ rm -f /root/sk5_auto_XS1.46.sh
 rm -f /root/sk5_auto_XS1.52.sh
 rm -f /root/XianSu_1.46_S5_auto.sh
 rm -f /root/XianSu_1.52_S5_auto.sh
+sed -i '/@reboot sleep 35 \&\& bash \/root\/sk5_auto.sh/d' /var/spool/cron/root
 
 # Check if user is root
 if [ $(id -u) != "0" ]; then
