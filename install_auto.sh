@@ -80,6 +80,7 @@ if [[ $IP =~ ^10\.0\.0\..* ]]; then
         echo "sudo ip addr add 10.0.0.12/24 dev $NIC:6" >> "$SCRIPT_PATH"
         echo "sudo ip addr add 10.0.0.13/24 dev $NIC:7" >> "$SCRIPT_PATH"
         echo "sudo ip addr add 10.0.0.14/24 dev $NIC:8" >> "$SCRIPT_PATH"
+        echo "sudo /etc/init.d/sockd start" >> "$SCRIPT_PATH"
         echo "exit" >> "$SCRIPT_PATH"
         chmod +x "$SCRIPT_PATH"
     fi
@@ -111,6 +112,7 @@ if [[ $IP =~ ^10\.0\.0\..* ]]; then
         echo "sudo ip addr add 10.0.0.12/24 dev $NIC:6" >> "$SCRIPT_PATH"
         echo "sudo ip addr add 10.0.0.13/24 dev $NIC:7" >> "$SCRIPT_PATH"
         echo "sudo ip addr add 10.0.0.14/24 dev $NIC:8" >> "$SCRIPT_PATH"
+        echo "sudo /etc/init.d/sockd start" >> "$SCRIPT_PATH"
         echo "exit" >> "$SCRIPT_PATH"
         chmod +x "$SCRIPT_PATH"
     fi
