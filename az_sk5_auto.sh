@@ -65,12 +65,13 @@ if [[ $IP =~ ^10\.0\.0\..* ]]; then
     SCRIPT_NAME="xnwk_30.sh"
     if [ -n "$NIC" ] && [ ! -f "$SCRIPT_PATH" ]; then
         for((i=5;i<=8;i++));do /sbin/ip address add 10.0.0.$i/24 dev $NIC;done
-        for((i=11;i<=14;i++));do /sbin/ip address add 10.0.0.$i/24 dev $NIC;done
-        echo "#!/bin/bash" > "$SCRIPT_PATH"
-        echo "for((i=5;i<=8;i++));do /sbin/ip address add 10.0.0.$i/24 dev $NIC;done" >> "$SCRIPT_PATH"
-        echo "for((i=1;i<=14;i++));do /sbin/ip address add 10.0.0.$i/24 dev $NIC;done" >> "$SCRIPT_PATH"
-        echo "sudo /etc/init.d/sockd start" >> "$SCRIPT_PATH"
-        echo "exit" >> "$SCRIPT_PATH"
+        for((i=1;i<=14;i++));do /sbin/ip address add 10.0.0.$i/24 dev $NIC;done
+        touch "$SCRIPT_PATH"
+        sed -i '$a #!/bin/bash' "$SCRIPT_PATH"
+        sed -i '$a for((i=5;i<=8;i++));do /sbin/ip address add 10.0.0.$i/24 dev $NIC;done' "$SCRIPT_PATH"
+        sed -i '$a for((i=11;i<=15;i++));do /sbin/ip address add 10.0.0.$i/24 dev $NIC;done' "$SCRIPT_PATH"
+        sed -i '$a sudo /etc/init.d/sockd start' "$SCRIPT_PATH"
+        sed -i '$a exit' "$SCRIPT_PATH"
         chmod +x "$SCRIPT_PATH"
     fi
     (crontab -l 2>/dev/null | grep -v -F -x "@reboot sleep 35 && $SCRIPT_PATH"; echo "@reboot sleep 35 && $SCRIPT_PATH") | crontab -
@@ -85,12 +86,13 @@ if [[ $IP =~ ^10\.0\.0\..* ]]; then
     SCRIPT_NAME="xnwk_30.sh"
     if [ -n "$NIC" ] && [ ! -f "$SCRIPT_PATH" ]; then
         for((i=5;i<=8;i++));do /sbin/ip address add 10.0.0.$i/24 dev $NIC;done
-        for((i=11;i<=14;i++));do /sbin/ip address add 10.0.0.$i/24 dev $NIC;done
-        echo "#!/bin/bash" > "$SCRIPT_PATH"
-        echo "for((i=5;i<=8;i++));do /sbin/ip address add 10.0.0.$i/24 dev $NIC;done" >> "$SCRIPT_PATH"
-        echo "for((i=1;i<=14;i++));do /sbin/ip address add 10.0.0.$i/24 dev $NIC;done" >> "$SCRIPT_PATH"
-        echo "sudo /etc/init.d/sockd start" >> "$SCRIPT_PATH"
-        echo "exit" >> "$SCRIPT_PATH"
+        for((i=1;i<=14;i++));do /sbin/ip address add 10.0.0.$i/24 dev $NIC;done
+        touch "$SCRIPT_PATH"
+        sed -i '$a #!/bin/bash' "$SCRIPT_PATH"
+        sed -i '$a for((i=5;i<=8;i++));do /sbin/ip address add 10.0.0.$i/24 dev $NIC;done' "$SCRIPT_PATH"
+        sed -i '$a for((i=11;i<=15;i++));do /sbin/ip address add 10.0.0.$i/24 dev $NIC;done' "$SCRIPT_PATH"
+        sed -i '$a sudo /etc/init.d/sockd start' "$SCRIPT_PATH"
+        sed -i '$a exit' "$SCRIPT_PATH"
         chmod +x "$SCRIPT_PATH"
     fi
     (crontab -l 2>/dev/null | grep -v -F -x "@reboot sleep 35 && $SCRIPT_PATH"; echo "@reboot sleep 35 && $SCRIPT_PATH") | crontab -
