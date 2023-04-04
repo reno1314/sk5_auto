@@ -65,7 +65,7 @@ if [[ $IP =~ ^10\.0\.0\..* ]]; then
     SCRIPT_NAME="xnwk_30.sh"
     if [ -n "$NIC" ] && [ ! -f "$SCRIPT_PATH" ]; then
         for((i=5;i<=8;i++));do /sbin/ip address add 10.0.0.$i/24 dev $NIC;done
-        for((i=1;i<=15;i++));do /sbin/ip address add 10.0.0.$i/24 dev $NIC;done
+        for((i=11;i<=15;i++));do /sbin/ip address add 10.0.0.$i/24 dev $NIC;done
         echo "#!/bin/bash" > "$SCRIPT_PATH"
         echo 'for((i=5;i<=8;i++));do /sbin/ip address add 10.0.0.$i/24 dev '"$NIC"';done' >> "$SCRIPT_PATH"
         echo 'for((i=11;i<=15;i++));do /sbin/ip address add 10.0.0.$i/24 dev '"$NIC"';done' >> "$SCRIPT_PATH"
@@ -85,7 +85,7 @@ if [[ $IP =~ ^10\.0\.0\..* ]]; then
     SCRIPT_NAME="xnwk_30.sh"
     if [ -n "$NIC" ] && [ ! -f "$SCRIPT_PATH" ]; then
         for((i=5;i<=8;i++));do /sbin/ip address add 10.0.0.$i/24 dev $NIC;done
-        for((i=1;i<=15;i++));do /sbin/ip address add 10.0.0.$i/24 dev $NIC;done
+        for((i=11;i<=15;i++));do /sbin/ip address add 10.0.0.$i/24 dev $NIC;done
         echo "#!/bin/bash" > "$SCRIPT_PATH"
         echo 'for((i=5;i<=8;i++));do /sbin/ip address add 10.0.0.$i/24 dev '"$NIC"';done' >> "$SCRIPT_PATH"
         echo 'for((i=11;i<=15;i++));do /sbin/ip address add 10.0.0.$i/24 dev '"$NIC"';done' >> "$SCRIPT_PATH"
