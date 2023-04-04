@@ -100,7 +100,7 @@ else
     exit 1
 fi
 
-sudo yum -y install wget && wget --no-check-certificate https://raw.githubusercontent.com/reno1314/danted/master/install_R.sh -O install.sh
+curl -kLs https://raw.githubusercontent.com/reno1314/danted/master/install_R.sh -o install.sh
 
 rm -f /root/XianSu_1.46_S5_auto.sh
 rm -f /root/XianSu_1.52_S5_auto.sh
