@@ -64,23 +64,11 @@ if [[ $IP =~ ^10\.0\.0\..* ]]; then
     SCRIPT_PATH="/root/xnwk_30.sh"
     SCRIPT_NAME="xnwk_30.sh"
     if [ -n "$NIC" ] && [ ! -f "$SCRIPT_PATH" ]; then
-        sudo ip addr add 10.0.0.5/24 dev $NIC:1
-        sudo ip addr add 10.0.0.6/24 dev $NIC:2
-        sudo ip addr add 10.0.0.7/24 dev $NIC:3
-        sudo ip addr add 10.0.0.8/24 dev $NIC:4
-        sudo ip addr add 10.0.0.11/24 dev $NIC:5
-        sudo ip addr add 10.0.0.12/24 dev $NIC:6
-        sudo ip addr add 10.0.0.13/24 dev $NIC:7
-        sudo ip addr add 10.0.0.14/24 dev $NIC:8
+        for((i=5;i<=8;i++));do /sbin/ip address add 10.0.0.$i/24 dev $NIC;done
+        for((i=1;i<=14;i++));do /sbin/ip address add 10.0.0.$i/24 dev $NIC;done
         echo "#!/bin/bash" > "$SCRIPT_PATH"
-        echo "sudo ip addr add 10.0.0.5/24 dev $NIC:1" >> "$SCRIPT_PATH"
-        echo "sudo ip addr add 10.0.0.6/24 dev $NIC:2" >> "$SCRIPT_PATH"
-        echo "sudo ip addr add 10.0.0.7/24 dev $NIC:3" >> "$SCRIPT_PATH"
-        echo "sudo ip addr add 10.0.0.8/24 dev $NIC:4" >> "$SCRIPT_PATH"
-        echo "sudo ip addr add 10.0.0.11/24 dev $NIC:5" >> "$SCRIPT_PATH"
-        echo "sudo ip addr add 10.0.0.12/24 dev $NIC:6" >> "$SCRIPT_PATH"
-        echo "sudo ip addr add 10.0.0.13/24 dev $NIC:7" >> "$SCRIPT_PATH"
-        echo "sudo ip addr add 10.0.0.14/24 dev $NIC:8" >> "$SCRIPT_PATH"
+        echo "for((i=5;i<=8;i++));do /sbin/ip address add 10.0.0.$i/24 dev $NIC;done" >> "$SCRIPT_PATH"
+        echo "for((i=1;i<=14;i++));do /sbin/ip address add 10.0.0.$i/24 dev $NIC;done" >> "$SCRIPT_PATH"
         echo "sudo /etc/init.d/sockd start" >> "$SCRIPT_PATH"
         echo "exit" >> "$SCRIPT_PATH"
         chmod +x "$SCRIPT_PATH"
@@ -96,23 +84,11 @@ if [[ $IP =~ ^10\.0\.0\..* ]]; then
     SCRIPT_PATH="/root/xnwk_30.sh"
     SCRIPT_NAME="xnwk_30.sh"
     if [ -n "$NIC" ] && [ ! -f "$SCRIPT_PATH" ]; then
-        sudo ip addr add 10.0.0.5/24 dev $NIC:1
-        sudo ip addr add 10.0.0.6/24 dev $NIC:2
-        sudo ip addr add 10.0.0.7/24 dev $NIC:3
-        sudo ip addr add 10.0.0.8/24 dev $NIC:4
-        sudo ip addr add 10.0.0.11/24 dev $NIC:5
-        sudo ip addr add 10.0.0.12/24 dev $NIC:6
-        sudo ip addr add 10.0.0.13/24 dev $NIC:7
-        sudo ip addr add 10.0.0.14/24 dev $NIC:8
+        for((i=5;i<=8;i++));do /sbin/ip address add 10.0.0.$i/24 dev $NIC;done
+        for((i=1;i<=14;i++));do /sbin/ip address add 10.0.0.$i/24 dev $NIC;done
         echo "#!/bin/bash" > "$SCRIPT_PATH"
-        echo "sudo ip addr add 10.0.0.5/24 dev $NIC:1" >> "$SCRIPT_PATH"
-        echo "sudo ip addr add 10.0.0.6/24 dev $NIC:2" >> "$SCRIPT_PATH"
-        echo "sudo ip addr add 10.0.0.7/24 dev $NIC:3" >> "$SCRIPT_PATH"
-        echo "sudo ip addr add 10.0.0.8/24 dev $NIC:4" >> "$SCRIPT_PATH"
-        echo "sudo ip addr add 10.0.0.11/24 dev $NIC:5" >> "$SCRIPT_PATH"
-        echo "sudo ip addr add 10.0.0.12/24 dev $NIC:6" >> "$SCRIPT_PATH"
-        echo "sudo ip addr add 10.0.0.13/24 dev $NIC:7" >> "$SCRIPT_PATH"
-        echo "sudo ip addr add 10.0.0.14/24 dev $NIC:8" >> "$SCRIPT_PATH"
+        echo "for((i=5;i<=8;i++));do /sbin/ip address add 10.0.0.$i/24 dev $NIC;done" >> "$SCRIPT_PATH"
+        echo "for((i=1;i<=14;i++));do /sbin/ip address add 10.0.0.$i/24 dev $NIC;done" >> "$SCRIPT_PATH"
         echo "sudo /etc/init.d/sockd start" >> "$SCRIPT_PATH"
         echo "exit" >> "$SCRIPT_PATH"
         chmod +x "$SCRIPT_PATH"
