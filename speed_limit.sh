@@ -46,12 +46,16 @@ save_iptables_rules() {
     fi
 }
 
-# 添加开机自启动
-add_startup_script() {
-    if [ -f /etc/lsb-release ]; then
-        sudo cp network_speed_control.sh /etc/init.d/
-        sudo update-rc.d network_speed_control.sh defaults
-    fi
+# 添加Traffic Control规则到启动脚本
+add_tc_to_startup() {
+    # 创建Traffic Control规则
+    tc_cmd="sudo tc qdisc add dev $IFACE root handle 1: htb default 12"
+    tc_cmd+=" && sudo tc class add dev $IFACE parent 1: classid 1:12 htb rate $LIMIT_SPEED"
+
+    # 将Traffic Control规则写入启动脚本
+    echo "#!/bin/bash" | sudo tee /etc/network/if-pre-up.d/tc_limit_speed
+    echo $tc_cmd | sudo tee -a /etc/network/if-pre-up.d/tc_limit_speed
+    sudo chmod +x /etc/network/if-pre-up.d/tc_limit_speed
 }
 
 function add_limit {
@@ -74,6 +78,8 @@ function add_limit {
 
     # 保存iptables规则以便在重启后仍然有效
     save_iptables_rules
+    # 添加Traffic Control规则到启动脚本
+    add_tc_to_startup
 
     echo "网络速度已限制为10 Mbps，IP地址范围从10.0.0.4到10.0.0.15的所有设备受影响。"
 }
@@ -115,5 +121,3 @@ else
             ;;
     esac
 fi
-
-add_startup_script
