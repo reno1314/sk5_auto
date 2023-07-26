@@ -3,8 +3,8 @@
 # 使用ip命令获取网络接口名称
 IFACE=$(ip -o -4 route show to default | awk '{print $5}')
 
-# 将网络速度限制设置为15 Mbps
-LIMIT_SPEED=15mbit
+# 将网络速度限制设置为10 Mbps
+LIMIT_SPEED=10mbit
 
 # 检查是否已经安装了版本正确的TC
 check_tc_installed() {
@@ -76,8 +76,8 @@ remove_tc_from_startup() {
 # 保存iptables规则
 save_iptables_rules() {
     if [ -f /etc/lsb-release ]; then
-        sudo iptables-save | sudo tee /etc/iptables/rules.v4
-        sudo ip6tables-save | sudo tee /etc/iptables/rules.v6
+        sudo iptables-save > /etc/iptables/rules.v4
+        sudo ip6tables-save > /etc/iptables/rules.v6
     fi
 }
 
@@ -115,7 +115,7 @@ function add_limit {
     # 保存iptables规则以便在重启后仍然有效
     save_iptables_rules
 
-    echo "网络速度已限制为15 Mbps，IP地址范围从10.0.0.4到10.0.0.15的所有设备受影响。"
+    echo "网络速度已限制为10 Mbps，IP地址范围从10.0.0.4到10.0.0.15的所有设备受影响。"
 }
 
 function remove_limit {
