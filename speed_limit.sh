@@ -3,7 +3,40 @@
 # 使用ip命令获取网络接口名称
 IFACE=$(ip -o -4 route show to default | awk '{print $5}')
 
-LIMIT_SPEED=20mbit
+# 将网络速度限制设置为10 Mbps
+LIMIT_SPEED=10mbit
+
+# 检查是否已经安装了版本正确的TC
+check_tc_installed() {
+    if tc -h &>/dev/null; then
+        echo "TC已安装，继续执行脚本。"
+    else
+        echo "未找到TC或版本不正确，开始安装TC..."
+        install_tc
+    fi
+}
+
+# 安装TC
+install_tc() {
+    # 在CentOS/RHEL系统上安装TC
+    if [ -f /etc/redhat-release ]; then
+        sudo yum install -y iproute2
+    # 在Ubuntu/Debian系统上安装TC
+    elif [ -f /etc/lsb-release ]; then
+        sudo apt-get update
+        sudo apt-get install -y iproute2
+    else
+        echo "未知的Linux发行版，无法自动安装TC。请手动安装TC并重试。"
+        exit 1
+    fi
+
+    if tc -h &>/dev/null; then
+        echo "TC安装成功，继续执行脚本。"
+    else
+        echo "TC安装失败，请手动安装TC并重试。"
+        exit 1
+    fi
+}
 
 function add_limit {
     # 创建Traffic Control类并设置限速规则
@@ -26,7 +59,7 @@ function add_limit {
     # 保存iptables规则以便在重启后仍然有效
     sudo service iptables save
 
-    echo "网络速度已限制为1 Mbps，IP地址范围从10.0.0.4到10.0.0.15的所有设备受影响。"
+    echo "网络速度已限制为10 Mbps，IP地址范围从10.0.0.4到10.0.0.15的所有设备受影响。"
 }
 
 function remove_limit {
@@ -47,10 +80,7 @@ function remove_limit {
     echo "限制的网络速度已移除，IP地址范围从10.0.0.4到10.0.0.15的所有设备不再受影响。"
 }
 
-if [ -z "$IFACE" ]; then
-    echo "无法自动检测网络接口名称。请手动设置网络接口名称。"
-    exit 1
-fi
+check_tc_installed
 
 if [ $# -eq 0 ]; then
     echo "请输入选项："
