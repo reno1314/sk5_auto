@@ -98,22 +98,21 @@ function remove_limit {
 
 check_tc_installed
 
-if [ $# -eq 0 ]; then
-    echo "请输入选项："
-    echo "  1. 批量增加限速"
-    echo "  2. 批量删除限制"
-else
-    case $1 in
-        1)
-            add_limit
-            ;;
-        2)
-            remove_limit
-            ;;
-        *)
-            echo "无效的选项，请输入1或2。"
-            ;;
-    esac
-fi
+echo "请输入选项："
+echo "  1. 批量增加限速"
+echo "  2. 批量删除限制"
+read choice
+
+case $choice in
+    1)
+        add_limit
+        ;;
+    2)
+        remove_limit
+        ;;
+    *)
+        echo "无效的选项，请输入1或2。"
+        ;;
+esac
 
 add_startup_script
