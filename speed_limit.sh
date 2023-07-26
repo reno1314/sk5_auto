@@ -49,24 +49,37 @@ save_iptables_rules() {
 # 添加Traffic Control规则到启动脚本
 add_tc_to_startup() {
     # 创建Traffic Control规则
-    tc_cmd="sudo tc qdisc add dev $IFACE root handle 1: htb default 12"
-    tc_cmd+=" && sudo tc class add dev $IFACE parent 1: classid 1:12 htb rate $LIMIT_SPEED"
+    tc_cmd="tc qdisc add dev $IFACE root handle 1: htb default 12"
+    tc_cmd+=" && tc class add dev $IFACE parent 1: classid 1:12 htb rate $LIMIT_SPEED"
 
-    # 将Traffic Control规则写入启动脚本
-    echo "#!/bin/bash" | sudo tee "/etc/sysconfig/network-scripts/tc_limit_speed"
-    echo $tc_cmd | sudo tee -a "/etc/sysconfig/network-scripts/tc_limit_speed"
-    sudo chmod +x "/etc/sysconfig/network-scripts/tc_limit_speed"
-}
+    # 判断是否支持systemd
+    if pidof systemd &>/dev/null; then
+        echo "使用systemd"
+        # 创建一个自定义的systemd服务单元
+        sudo tee /etc/systemd/system/tc_limit_speed.service > /dev/null <<EOF
+[Unit]
+Description=Limit Network Speed with Traffic Control
+After=network.target
 
-# 自动选择Traffic Control规则的保存目录
-auto_select_tc_dir() {
-    if [ -f /etc/redhat-release ]; then
-        tc_dir="/etc/sysconfig/network-scripts/"
-    elif [ -f /etc/lsb-release ]; then
-        tc_dir="/etc/network/if-pre-up.d/"
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c "$tc_cmd"
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+        # 重新加载systemd服务
+        sudo systemctl daemon-reload
+        # 启用自定义的服务
+        sudo systemctl enable tc_limit_speed.service
     else
-        echo "未知的Linux发行版，无法自动选择保存Traffic Control规则的目录。"
-        exit 1
+        echo "使用rc.local"
+        # 将Traffic Control规则写入rc.local脚本
+        echo "#!/bin/bash" | sudo tee "/etc/rc.d/rc.local"
+        echo $tc_cmd | sudo tee -a "/etc/rc.d/rc.local"
+        echo "exit 0" | sudo tee -a "/etc/rc.d/rc.local"
+        sudo chmod +x "/etc/rc.d/rc.local"
     fi
 }
 
@@ -90,8 +103,6 @@ function add_limit {
 
     # 保存iptables规则以便在重启后仍然有效
     save_iptables_rules
-    # 自动选择Traffic Control规则的保存目录
-    auto_select_tc_dir
     # 添加Traffic Control规则到启动脚本
     add_tc_to_startup
 
