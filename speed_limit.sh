@@ -6,6 +6,9 @@ IFACE=$(ip -o -4 route show to default | awk '{print $5}')
 # 将网络速度限制设置为15 Mbps
 LIMIT_SPEED=15mbit
 
+# Traffic Control规则的标记
+TC_RULE_MARK=12
+
 # 检查是否已经安装了版本正确的TC
 check_tc_installed() {
     if tc -h &>/dev/null; then
@@ -38,41 +41,8 @@ install_tc() {
     fi
 }
 
-# 添加Traffic Control规则到启动脚本
-add_tc_to_startup() {
-    # 创建Traffic Control规则
-    tc_cmd="tc qdisc add dev $IFACE root handle 1: htb default 12"
-    tc_cmd+=" && tc class add dev $IFACE parent 1: classid 1:12 htb rate $LIMIT_SPEED"
-
-    # 将Traffic Control规则写入相应目录下的启动脚本
-    if [ -d "/etc/systemd/system" ]; then
-        TC_STARTUP_SCRIPT="/etc/systemd/system/tc_limit_speed.service"
-    elif [ -d "/etc/network/if-up.d" ]; then
-        TC_STARTUP_SCRIPT="/etc/network/if-up.d/tc_limit_speed"
-    else
-        echo "未能找到适合的目录来存放启动脚本，无法自动创建限速规则。"
-        exit 1
-    fi
-
-    sudo tee "$TC_STARTUP_SCRIPT" > /dev/null <<EOF
-#!/bin/bash
-if [ ! -f "$TC_STARTUP_SCRIPT.marker" ]; then
-    $tc_cmd
-    touch "$TC_STARTUP_SCRIPT.marker"
-fi
-EOF
-    sudo chmod +x "$TC_STARTUP_SCRIPT"
-}
-
-# 删除Traffic Control规则从启动脚本
-remove_tc_from_startup() {
-    # 删除相应目录下的启动脚本
-    if [ -f "$TC_STARTUP_SCRIPT" ]; then
-        sudo rm "$TC_STARTUP_SCRIPT"
-    fi
-}
-
-function add_limit {
+# 添加Traffic Control规则
+add_tc_rule() {
     # 创建Traffic Control类并设置限速规则
     sudo tc qdisc add dev $IFACE root handle 1: htb default 12
     sudo tc class add dev $IFACE parent 1: classid 1:12 htb rate $LIMIT_SPEED
@@ -86,17 +56,13 @@ function add_limit {
         TARGET_IP="10.0.0.$ip"
 
         # 使用iptables过滤指定IP的流量并将其定向到限速类
-        sudo iptables -A OUTPUT -t mangle -s $TARGET_IP -j MARK --set-mark 12
-        sudo iptables -A INPUT -t mangle -d $TARGET_IP -j MARK --set-mark 12
+        sudo iptables -A OUTPUT -t mangle -s $TARGET_IP -j MARK --set-mark $TC_RULE_MARK
+        sudo iptables -A INPUT -t mangle -d $TARGET_IP -j MARK --set-mark $TC_RULE_MARK
     done
-
-    # 添加Traffic Control规则到启动脚本
-    add_tc_to_startup
-
-    echo "网络速度已限制为15 Mbps，IP地址范围从10.0.0.4到10.0.0.15的所有设备受影响。"
 }
 
-function remove_limit {
+# 删除Traffic Control规则
+remove_tc_rule() {
     # 删除Traffic Control类和iptables规则
     sudo tc qdisc del dev $IFACE root
 
@@ -107,14 +73,22 @@ function remove_limit {
     # 删除每个IP地址的限速规则
     for ((ip=$start_ip; ip<=$end_ip; ip++)); do
         TARGET_IP="10.0.0.$ip"
-        sudo iptables -D OUTPUT -t mangle -s $TARGET_IP -j MARK --set-mark 12
-        sudo iptables -D INPUT -t mangle -d $TARGET_IP -j MARK --set-mark 12
+        sudo iptables -D OUTPUT -t mangle -s $TARGET_IP -j MARK --set-mark $TC_RULE_MARK
+        sudo iptables -D INPUT -t mangle -d $TARGET_IP -j MARK --set-mark $TC_RULE_MARK
     done
+}
 
-    # 删除Traffic Control启动脚本
-    remove_tc_from_startup
+# 添加Traffic Control规则到定时任务
+add_tc_to_cron() {
+    CRON_FILE="/etc/cron.d/tc_limit_speed"
+    CRON_ENTRY="*/1 * * * * root /sbin/tc qdisc add dev $IFACE root handle 1: htb default 12 && /sbin/tc class add dev $IFACE parent 1: classid 1:12 htb rate $LIMIT_SPEED"
+    sudo sh -c "echo '$CRON_ENTRY' > $CRON_FILE"
+}
 
-    echo "限制的网络速度已移除，IP地址范围从10.0.0.4到10.0.0.15的所有设备不再受影响。"
+# 从定时任务中删除Traffic Control规则
+remove_tc_from_cron() {
+    CRON_FILE="/etc/cron.d/tc_limit_speed"
+    sudo rm -f $CRON_FILE
 }
 
 check_tc_installed
@@ -126,10 +100,14 @@ if [ $# -eq 0 ]; then
 else
     case $1 in
         1)
-            add_limit
+            add_tc_rule
+            add_tc_to_cron
+            echo "网络速度已限制为15 Mbps，IP地址范围从10.0.0.4到10.0.0.15的所有设备受影响。"
             ;;
         2)
-            remove_limit
+            remove_tc_rule
+            remove_tc_from_cron
+            echo "限制的网络速度已移除，IP地址范围从10.0.0.4到10.0.0.15的所有设备不再受影响。"
             ;;
         *)
             echo "无效的选项，请输入1或2。"
