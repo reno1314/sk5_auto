@@ -3,8 +3,8 @@
 # 使用ip命令获取网络接口名称
 IFACE=$(ip -o -4 route show to default | awk '{print $5}')
 
-# 将网络速度限制设置为15 Mbps
-LIMIT_SPEED=15mbit
+# 将网络速度限制设置为10 Mbps
+LIMIT_SPEED=10mbit
 
 # 检查是否已经安装了版本正确的TC
 check_tc_installed() {
@@ -81,6 +81,16 @@ save_iptables_rules() {
     fi
 }
 
+# 删除iptables规则
+remove_iptables_rules() {
+    if [ -f /etc/lsb-release ]; then
+        sudo iptables -D OUTPUT -t mangle -m mark --mark 12 -j DROP
+        sudo iptables -D INPUT -t mangle -m mark --mark 12 -j DROP
+        sudo ip6tables -D OUTPUT -t mangle -m mark --mark 12 -j DROP
+        sudo ip6tables -D INPUT -t mangle -m mark --mark 12 -j DROP
+    fi
+}
+
 function add_limit {
     # 创建Traffic Control类并设置限速规则
     sudo tc qdisc add dev $IFACE root handle 1: htb default 12
@@ -125,6 +135,9 @@ function remove_limit {
 
     # 删除Traffic Control启动脚本
     remove_tc_from_startup
+
+    # 删除iptables规则以确保限速规则在重启后不会自动加载
+    remove_iptables_rules
 
     # 保存iptables规则以便在重启后仍然有效
     save_iptables_rules
