@@ -52,20 +52,10 @@ add_tc_to_startup() {
     tc_cmd="sudo tc qdisc add dev $IFACE root handle 1: htb default 12"
     tc_cmd+=" && sudo tc class add dev $IFACE parent 1: classid 1:12 htb rate $LIMIT_SPEED"
 
-    # 根据Linux发行版选择保存Traffic Control规则的目录
-    if [ -f /etc/redhat-release ]; then
-        tc_dir="/etc/sysconfig/network-scripts/"
-    elif [ -f /etc/lsb-release ]; then
-        tc_dir="/etc/network/if-pre-up.d/"
-    else
-        echo "未知的Linux发行版，无法自动选择保存Traffic Control规则的目录。"
-        exit 1
-    fi
-
     # 将Traffic Control规则写入启动脚本
-    echo "#!/bin/bash" | sudo tee "${tc_dir}tc_limit_speed"
-    echo $tc_cmd | sudo tee -a "${tc_dir}tc_limit_speed"
-    sudo chmod +x "${tc_dir}tc_limit_speed"
+    echo "#!/bin/bash" | sudo tee "/etc/sysconfig/network-scripts/tc_limit_speed"
+    echo $tc_cmd | sudo tee -a "/etc/sysconfig/network-scripts/tc_limit_speed"
+    sudo chmod +x "/etc/sysconfig/network-scripts/tc_limit_speed"
 }
 
 # 自动选择Traffic Control规则的保存目录
@@ -100,10 +90,8 @@ function add_limit {
 
     # 保存iptables规则以便在重启后仍然有效
     save_iptables_rules
-
     # 自动选择Traffic Control规则的保存目录
     auto_select_tc_dir
-
     # 添加Traffic Control规则到启动脚本
     add_tc_to_startup
 
