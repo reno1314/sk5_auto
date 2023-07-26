@@ -3,8 +3,8 @@
 # 使用ip命令获取网络接口名称
 IFACE=$(ip -o -4 route show to default | awk '{print $5}')
 
-# 将网络速度限制设置为10 Mbps
-LIMIT_SPEED=10mbit
+# 将网络速度限制设置为15 Mbps
+LIMIT_SPEED=15mbit
 
 # 检查是否已经安装了版本正确的TC
 check_tc_installed() {
@@ -38,17 +38,6 @@ install_tc() {
     fi
 }
 
-# 自动检测Traffic Control规则存放位置
-detect_tc_location() {
-    if pidof systemd &>/dev/null; then
-        echo "使用systemd"
-        TC_RULES_DIR="/etc/systemd/system"
-    else
-        echo "使用if-up.d"
-        TC_RULES_DIR="/etc/network/if-up.d"
-    fi
-}
-
 # 添加Traffic Control规则到启动脚本
 add_tc_to_startup() {
     # 创建Traffic Control规则
@@ -56,38 +45,30 @@ add_tc_to_startup() {
     tc_cmd+=" && tc class add dev $IFACE parent 1: classid 1:12 htb rate $LIMIT_SPEED"
 
     # 将Traffic Control规则写入相应目录下的启动脚本
-    sudo tee "$TC_RULES_DIR/tc_limit_speed" > /dev/null <<EOF
+    if [ -d "/etc/systemd/system" ]; then
+        TC_STARTUP_SCRIPT="/etc/systemd/system/tc_limit_speed.service"
+    elif [ -d "/etc/network/if-up.d" ]; then
+        TC_STARTUP_SCRIPT="/etc/network/if-up.d/tc_limit_speed"
+    else
+        echo "未能找到适合的目录来存放启动脚本，无法自动创建限速规则。"
+        exit 1
+    fi
+
+    sudo tee "$TC_STARTUP_SCRIPT" > /dev/null <<EOF
 #!/bin/bash
-if [ ! -f "$TC_RULES_DIR/tc_limit_speed_marker" ]; then
+if [ ! -f "$TC_STARTUP_SCRIPT.marker" ]; then
     $tc_cmd
+    touch "$TC_STARTUP_SCRIPT.marker"
 fi
 EOF
-    sudo chmod +x "$TC_RULES_DIR/tc_limit_speed"
+    sudo chmod +x "$TC_STARTUP_SCRIPT"
 }
 
 # 删除Traffic Control规则从启动脚本
 remove_tc_from_startup() {
     # 删除相应目录下的启动脚本
-    if [ -f "$TC_RULES_DIR/tc_limit_speed" ]; then
-        sudo rm "$TC_RULES_DIR/tc_limit_speed"
-    fi
-}
-
-# 保存iptables规则
-save_iptables_rules() {
-    if [ -f /etc/lsb-release ]; then
-        sudo iptables-save > /etc/iptables/rules.v4
-        sudo ip6tables-save > /etc/iptables/rules.v6
-    fi
-}
-
-# 删除iptables规则
-remove_iptables_rules() {
-    if [ -f /etc/lsb-release ]; then
-        sudo iptables -D OUTPUT -t mangle -m mark --mark 12 -j DROP
-        sudo iptables -D INPUT -t mangle -m mark --mark 12 -j DROP
-        sudo ip6tables -D OUTPUT -t mangle -m mark --mark 12 -j DROP
-        sudo ip6tables -D INPUT -t mangle -m mark --mark 12 -j DROP
+    if [ -f "$TC_STARTUP_SCRIPT" ]; then
+        sudo rm "$TC_STARTUP_SCRIPT"
     fi
 }
 
@@ -112,10 +93,7 @@ function add_limit {
     # 添加Traffic Control规则到启动脚本
     add_tc_to_startup
 
-    # 保存iptables规则以便在重启后仍然有效
-    save_iptables_rules
-
-    echo "网络速度已限制为10 Mbps，IP地址范围从10.0.0.4到10.0.0.15的所有设备受影响。"
+    echo "网络速度已限制为15 Mbps，IP地址范围从10.0.0.4到10.0.0.15的所有设备受影响。"
 }
 
 function remove_limit {
@@ -136,17 +114,10 @@ function remove_limit {
     # 删除Traffic Control启动脚本
     remove_tc_from_startup
 
-    # 删除iptables规则以确保限速规则在重启后不会自动加载
-    remove_iptables_rules
-
-    # 保存iptables规则以便在重启后仍然有效
-    save_iptables_rules
-
     echo "限制的网络速度已移除，IP地址范围从10.0.0.4到10.0.0.15的所有设备不再受影响。"
 }
 
 check_tc_installed
-detect_tc_location
 
 if [ $# -eq 0 ]; then
     echo "请输入选项："
