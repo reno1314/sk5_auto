@@ -38,6 +38,22 @@ install_tc() {
     fi
 }
 
+# 保存iptables规则
+save_iptables_rules() {
+    if [ -f /etc/lsb-release ]; then
+        sudo iptables-save | sudo tee /etc/iptables/rules.v4
+        sudo ip6tables-save | sudo tee /etc/iptables/rules.v6
+    fi
+}
+
+# 添加开机自启动
+add_startup_script() {
+    if [ -f /etc/lsb-release ]; then
+        sudo cp network_speed_control.sh /etc/init.d/
+        sudo update-rc.d network_speed_control.sh defaults
+    fi
+}
+
 function add_limit {
     # 创建Traffic Control类并设置限速规则
     sudo tc qdisc add dev $IFACE root handle 1: htb default 12
@@ -57,7 +73,7 @@ function add_limit {
     done
 
     # 保存iptables规则以便在重启后仍然有效
-    sudo service iptables save
+    save_iptables_rules
 
     echo "网络速度已限制为10 Mbps，IP地址范围从10.0.0.4到10.0.0.15的所有设备受影响。"
 }
@@ -99,3 +115,5 @@ else
             ;;
     esac
 fi
+
+add_startup_script
