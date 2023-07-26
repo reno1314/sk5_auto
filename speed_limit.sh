@@ -67,21 +67,10 @@ add_tc_rule() {
     done
 }
 
-# 删除Traffic Control规则
-remove_tc_rule() {
-    # 删除Traffic Control类和iptables规则
-    sudo tc qdisc del dev $IFACE root
-
-    # 定义IP地址范围
-    start_ip=4
-    end_ip=15
-
-    # 删除每个IP地址的限速规则
-    for ((ip=$start_ip; ip<=$end_ip; ip++)); do
-        TARGET_IP="10.0.0.$ip"
-        sudo iptables -D OUTPUT -t mangle -s $TARGET_IP -j MARK --set-mark $TC_RULE_MARK
-        sudo iptables -D INPUT -t mangle -d $TARGET_IP -j MARK --set-mark $TC_RULE_MARK
-    done
+# 保存iptables规则以便在重启后仍然有效
+save_iptables_rules() {
+    sudo iptables-save | sudo tee /etc/iptables/rules.v4
+    sudo ip6tables-save | sudo tee /etc/iptables/rules.v6
 }
 
 # 添加Traffic Control恢复规则到定时任务
@@ -103,9 +92,16 @@ create_tc_restore_script() {
 #!/bin/bash
 
 # 恢复Traffic Control规则
-/bin/bash $0 1
+/bin/bash $TC_RULE_FILE 1
 EOL
     sudo chmod +x $TC_RESTORE_FILE
+}
+
+# 恢复Traffic Control规则
+restore_tc_rule() {
+    # 重新加载iptables规则
+    sudo iptables-restore < /etc/iptables/rules.v4
+    sudo ip6tables-restore < /etc/iptables/rules.v6
 }
 
 check_tc_installed
@@ -118,12 +114,16 @@ else
     case $1 in
         1)
             add_tc_rule
+            save_iptables_rules
             create_tc_restore_script
             add_tc_restore_to_cron
             echo "网络速度已限制为10 Mbps，IP地址范围从10.0.0.4到10.0.0.15的所有设备受影响。"
             ;;
         2)
-            remove_tc_rule
+            sudo tc qdisc del dev $IFACE root
+            sudo iptables -D OUTPUT -t mangle -m mark --mark $TC_RULE_MARK -j MARK --set-mark $TC_RULE_MARK
+            sudo iptables -D INPUT -t mangle -m mark --mark $TC_RULE_MARK -j MARK --set-mark $TC_RULE_MARK
+            restore_tc_rule
             remove_tc_restore_from_cron
             echo "限制的网络速度已移除，IP地址范围从10.0.0.4到10.0.0.15的所有设备不再受影响。"
             ;;
