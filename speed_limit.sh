@@ -70,7 +70,7 @@ add_tc_rule() {
 # 删除Traffic Control规则
 remove_tc_rule() {
     # 删除Traffic Control类和iptables规则
-    sudo tc qdisc del dev $IFACE root
+    sudo tc qdisc del dev $IFACE root &>/dev/null
 
     # 定义IP地址范围
     start_ip=4
@@ -79,8 +79,8 @@ remove_tc_rule() {
     # 删除每个IP地址的限速规则
     for ((ip=$start_ip; ip<=$end_ip; ip++)); do
         TARGET_IP="10.0.0.$ip"
-        sudo iptables -D OUTPUT -t mangle -s $TARGET_IP -j MARK --set-mark $TC_RULE_MARK
-        sudo iptables -D INPUT -t mangle -d $TARGET_IP -j MARK --set-mark $TC_RULE_MARK
+        sudo iptables -D OUTPUT -t mangle -s $TARGET_IP -j MARK --set-mark $TC_RULE_MARK 2>/dev/null
+        sudo iptables -D INPUT -t mangle -d $TARGET_IP -j MARK --set-mark $TC_RULE_MARK 2>/dev/null
     done
 }
 
