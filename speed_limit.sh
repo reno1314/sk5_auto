@@ -38,11 +38,14 @@ install_tc() {
     fi
 }
 
-# 保存iptables规则
-save_iptables_rules() {
-    if [ -f /etc/lsb-release ]; then
-        sudo iptables-save | sudo tee /etc/iptables/rules.v4
-        sudo ip6tables-save | sudo tee /etc/iptables/rules.v6
+# 自动检测Traffic Control规则存放位置
+detect_tc_location() {
+    if pidof systemd &>/dev/null; then
+        echo "使用systemd"
+        TC_RULES_DIR="/etc/systemd/system"
+    else
+        echo "使用if-up.d"
+        TC_RULES_DIR="/etc/network/if-up.d"
     fi
 }
 
@@ -52,34 +55,29 @@ add_tc_to_startup() {
     tc_cmd="tc qdisc add dev $IFACE root handle 1: htb default 12"
     tc_cmd+=" && tc class add dev $IFACE parent 1: classid 1:12 htb rate $LIMIT_SPEED"
 
-    # 判断是否支持systemd
-    if pidof systemd &>/dev/null; then
-        echo "使用systemd"
-        # 创建一个自定义的systemd服务单元
-        sudo tee /etc/systemd/system/tc_limit_speed.service > /dev/null <<EOF
-[Unit]
-Description=Limit Network Speed with Traffic Control
-After=network.target
-
-[Service]
-Type=oneshot
-ExecStart=/bin/bash -c "$tc_cmd"
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
+    # 将Traffic Control规则写入相应目录下的启动脚本
+    sudo tee "$TC_RULES_DIR/tc_limit_speed" > /dev/null <<EOF
+#!/bin/bash
+if [ ! -f "$TC_RULES_DIR/tc_limit_speed_marker" ]; then
+    $tc_cmd
+fi
 EOF
-        # 重新加载systemd服务
-        sudo systemctl daemon-reload
-        # 启用自定义的服务
-        sudo systemctl enable tc_limit_speed.service
-    else
-        echo "使用rc.local"
-        # 将Traffic Control规则写入rc.local脚本
-        echo "#!/bin/bash" | sudo tee "/etc/rc.d/rc.local"
-        echo $tc_cmd | sudo tee -a "/etc/rc.d/rc.local"
-        echo "exit 0" | sudo tee -a "/etc/rc.d/rc.local"
-        sudo chmod +x "/etc/rc.d/rc.local"
+    sudo chmod +x "$TC_RULES_DIR/tc_limit_speed"
+}
+
+# 删除Traffic Control规则从启动脚本
+remove_tc_from_startup() {
+    # 删除相应目录下的启动脚本
+    if [ -f "$TC_RULES_DIR/tc_limit_speed" ]; then
+        sudo rm "$TC_RULES_DIR/tc_limit_speed"
+    fi
+}
+
+# 保存iptables规则
+save_iptables_rules() {
+    if [ -f /etc/lsb-release ]; then
+        sudo iptables-save | sudo tee /etc/iptables/rules.v4
+        sudo ip6tables-save | sudo tee /etc/iptables/rules.v6
     fi
 }
 
@@ -101,10 +99,11 @@ function add_limit {
         sudo iptables -A INPUT -t mangle -d $TARGET_IP -j MARK --set-mark 12
     done
 
-    # 保存iptables规则以便在重启后仍然有效
-    save_iptables_rules
     # 添加Traffic Control规则到启动脚本
     add_tc_to_startup
+
+    # 保存iptables规则以便在重启后仍然有效
+    save_iptables_rules
 
     echo "网络速度已限制为10 Mbps，IP地址范围从10.0.0.4到10.0.0.15的所有设备受影响。"
 }
@@ -124,10 +123,17 @@ function remove_limit {
         sudo iptables -D INPUT -t mangle -d $TARGET_IP -j MARK --set-mark 12
     done
 
+    # 删除Traffic Control启动脚本
+    remove_tc_from_startup
+
+    # 保存iptables规则以便在重启后仍然有效
+    save_iptables_rules
+
     echo "限制的网络速度已移除，IP地址范围从10.0.0.4到10.0.0.15的所有设备不再受影响。"
 }
 
 check_tc_installed
+detect_tc_location
 
 if [ $# -eq 0 ]; then
     echo "请输入选项："
