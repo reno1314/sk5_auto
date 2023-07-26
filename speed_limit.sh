@@ -9,6 +9,12 @@ LIMIT_SPEED=15mbit
 # Traffic Control规则的标记
 TC_RULE_MARK=12
 
+# Traffic Control规则所在的文件
+TC_RULE_FILE="/etc/network/if-pre-up.d/tc_limit_speed"
+
+# Traffic Control恢复规则所在的文件
+TC_RESTORE_FILE="/etc/network/if-post-down.d/tc_restore"
+
 # 检查是否已经安装了版本正确的TC
 check_tc_installed() {
     if tc -h &>/dev/null; then
@@ -78,17 +84,28 @@ remove_tc_rule() {
     done
 }
 
-# 添加Traffic Control规则到定时任务
-add_tc_to_cron() {
-    CRON_FILE="/etc/cron.d/tc_limit_speed"
-    CRON_ENTRY="*/1 * * * * root /sbin/tc qdisc add dev $IFACE root handle 1: htb default 12 && /sbin/tc class add dev $IFACE parent 1: classid 1:12 htb rate $LIMIT_SPEED"
-    sudo sh -c "echo '$CRON_ENTRY' > $CRON_FILE"
+# 添加Traffic Control恢复规则到定时任务
+add_tc_restore_to_cron() {
+    CRON_FILE="/etc/cron.d/tc_restore_speed"
+    CRON_ENTRY="@reboot root /bin/bash $TC_RESTORE_FILE"
+    echo "$CRON_ENTRY" | sudo tee $CRON_FILE
 }
 
-# 从定时任务中删除Traffic Control规则
-remove_tc_from_cron() {
-    CRON_FILE="/etc/cron.d/tc_limit_speed"
+# 删除Traffic Control恢复规则从定时任务
+remove_tc_restore_from_cron() {
+    CRON_FILE="/etc/cron.d/tc_restore_speed"
     sudo rm -f $CRON_FILE
+}
+
+# 创建Traffic Control恢复规则脚本
+create_tc_restore_script() {
+    sudo tee $TC_RESTORE_FILE > /dev/null <<EOL
+#!/bin/bash
+
+# 恢复Traffic Control规则
+/bin/bash $0 1
+EOL
+    sudo chmod +x $TC_RESTORE_FILE
 }
 
 check_tc_installed
@@ -101,12 +118,13 @@ else
     case $1 in
         1)
             add_tc_rule
-            add_tc_to_cron
+            create_tc_restore_script
+            add_tc_restore_to_cron
             echo "网络速度已限制为15 Mbps，IP地址范围从10.0.0.4到10.0.0.15的所有设备受影响。"
             ;;
         2)
             remove_tc_rule
-            remove_tc_from_cron
+            remove_tc_restore_from_cron
             echo "限制的网络速度已移除，IP地址范围从10.0.0.4到10.0.0.15的所有设备不再受影响。"
             ;;
         *)
