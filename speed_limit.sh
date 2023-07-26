@@ -6,15 +6,6 @@ IFACE=$(ip -o -4 route show to default | awk '{print $5}')
 # 将网络速度限制设置为10 Mbps
 LIMIT_SPEED=10mbit
 
-# Traffic Control规则的标记
-TC_RULE_MARK=12
-
-# Traffic Control规则所在的文件
-TC_RULE_FILE="/etc/network/if-pre-up.d/tc_limit_speed"
-
-# Traffic Control恢复规则所在的文件
-TC_RESTORE_FILE="/etc/network/if-post-down.d/tc_restore"
-
 # 检查是否已经安装了版本正确的TC
 check_tc_installed() {
     if tc -h &>/dev/null; then
@@ -47,8 +38,65 @@ install_tc() {
     fi
 }
 
-# 添加Traffic Control规则
-add_tc_rule() {
+# 检查是否已安装iptables-persistent
+check_iptables_persistent_installed() {
+    if [ -f /etc/lsb-release ]; then
+        if dpkg -s iptables-persistent &>/dev/null; then
+            echo "iptables-persistent已安装。"
+        else
+            echo "iptables-persistent未安装。开始安装iptables-persistent..."
+            sudo apt-get update
+            sudo apt-get install -y iptables-persistent
+        fi
+    fi
+}
+
+# 保存iptables规则
+save_iptables_rules() {
+    if [ -f /etc/lsb-release ]; then
+        sudo iptables-save | sudo tee /etc/iptables/rules.v4
+        sudo ip6tables-save | sudo tee /etc/iptables/rules.v6
+    fi
+}
+
+# 添加Traffic Control规则到启动脚本
+add_tc_to_startup() {
+    # 创建Traffic Control规则
+    tc_cmd="tc qdisc add dev $IFACE root handle 1: htb default 12"
+    tc_cmd+=" && tc class add dev $IFACE parent 1: classid 1:12 htb rate $LIMIT_SPEED"
+
+    # 判断是否支持systemd
+    if pidof systemd &>/dev/null; then
+        echo "使用systemd"
+        # 创建一个自定义的systemd服务单元
+        sudo tee /etc/systemd/system/tc_limit_speed.service > /dev/null <<EOF
+[Unit]
+Description=Limit Network Speed with Traffic Control
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c "$tc_cmd"
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+        # 重新加载systemd服务
+        sudo systemctl daemon-reload
+        # 启用自定义的服务
+        sudo systemctl enable tc_limit_speed.service
+    else
+        echo "使用rc.local"
+        # 将Traffic Control规则写入rc.local脚本
+        echo "#!/bin/bash" | sudo tee "/etc/rc.d/rc.local"
+        echo $tc_cmd | sudo tee -a "/etc/rc.d/rc.local"
+        echo "exit 0" | sudo tee -a "/etc/rc.d/rc.local"
+        sudo chmod +x "/etc/rc.d/rc.local"
+    fi
+}
+
+function add_limit {
     # 创建Traffic Control类并设置限速规则
     sudo tc qdisc add dev $IFACE root handle 1: htb default 12
     sudo tc class add dev $IFACE parent 1: classid 1:12 htb rate $LIMIT_SPEED
@@ -62,49 +110,38 @@ add_tc_rule() {
         TARGET_IP="10.0.0.$ip"
 
         # 使用iptables过滤指定IP的流量并将其定向到限速类
-        sudo iptables -A OUTPUT -t mangle -s $TARGET_IP -j MARK --set-mark $TC_RULE_MARK
-        sudo iptables -A INPUT -t mangle -d $TARGET_IP -j MARK --set-mark $TC_RULE_MARK
+        sudo iptables -A OUTPUT -t mangle -s $TARGET_IP -j MARK --set-mark 12
+        sudo iptables -A INPUT -t mangle -d $TARGET_IP -j MARK --set-mark 12
     done
+
+    # 保存iptables规则以便在重启后仍然有效
+    save_iptables_rules
+    # 添加Traffic Control规则到启动脚本
+    add_tc_to_startup
+
+    echo "网络速度已限制为10 Mbps，IP地址范围从10.0.0.4到10.0.0.15的所有设备受影响。"
 }
 
-# 保存iptables规则以便在重启后仍然有效
-save_iptables_rules() {
-    sudo iptables-save | sudo tee /etc/iptables/rules.v4
-    sudo ip6tables-save | sudo tee /etc/iptables/rules.v6
-}
+function remove_limit {
+    # 删除Traffic Control类和iptables规则
+    sudo tc qdisc del dev $IFACE root
 
-# 添加Traffic Control恢复规则到定时任务
-add_tc_restore_to_cron() {
-    CRON_FILE="/etc/cron.d/tc_restore_speed"
-    CRON_ENTRY="@reboot root /bin/bash $TC_RESTORE_FILE"
-    echo "$CRON_ENTRY" | sudo tee $CRON_FILE
-}
+    # 定义IP地址范围
+    start_ip=4
+    end_ip=15
 
-# 删除Traffic Control恢复规则从定时任务
-remove_tc_restore_from_cron() {
-    CRON_FILE="/etc/cron.d/tc_restore_speed"
-    sudo rm -f $CRON_FILE
-}
+    # 删除每个IP地址的限速规则
+    for ((ip=$start_ip; ip<=$end_ip; ip++)); do
+        TARGET_IP="10.0.0.$ip"
+        sudo iptables -D OUTPUT -t mangle -s $TARGET_IP -j MARK --set-mark 12
+        sudo iptables -D INPUT -t mangle -d $TARGET_IP -j MARK --set-mark 12
+    done
 
-# 创建Traffic Control恢复规则脚本
-create_tc_restore_script() {
-    sudo tee $TC_RESTORE_FILE > /dev/null <<EOL
-#!/bin/bash
-
-# 恢复Traffic Control规则
-/bin/bash $TC_RULE_FILE 1
-EOL
-    sudo chmod +x $TC_RESTORE_FILE
-}
-
-# 恢复Traffic Control规则
-restore_tc_rule() {
-    # 重新加载iptables规则
-    sudo iptables-restore < /etc/iptables/rules.v4
-    sudo ip6tables-restore < /etc/iptables/rules.v6
+    echo "限制的网络速度已移除，IP地址范围从10.0.0.4到10.0.0.15的所有设备不再受影响。"
 }
 
 check_tc_installed
+check_iptables_persistent_installed
 
 if [ $# -eq 0 ]; then
     echo "请输入选项："
@@ -113,19 +150,10 @@ if [ $# -eq 0 ]; then
 else
     case $1 in
         1)
-            add_tc_rule
-            save_iptables_rules
-            create_tc_restore_script
-            add_tc_restore_to_cron
-            echo "网络速度已限制为10 Mbps，IP地址范围从10.0.0.4到10.0.0.15的所有设备受影响。"
+            add_limit
             ;;
         2)
-            sudo tc qdisc del dev $IFACE root
-            sudo iptables -D OUTPUT -t mangle -m mark --mark $TC_RULE_MARK -j MARK --set-mark $TC_RULE_MARK
-            sudo iptables -D INPUT -t mangle -m mark --mark $TC_RULE_MARK -j MARK --set-mark $TC_RULE_MARK
-            restore_tc_rule
-            remove_tc_restore_from_cron
-            echo "限制的网络速度已移除，IP地址范围从10.0.0.4到10.0.0.15的所有设备不再受影响。"
+            remove_limit
             ;;
         *)
             echo "无效的选项，请输入1或2。"
