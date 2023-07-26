@@ -96,6 +96,25 @@ EOF
     fi
 }
 
+# 删除Traffic Control规则从启动脚本
+remove_tc_from_startup() {
+    # 判断是否支持systemd
+    if pidof systemd &>/dev/null; then
+        echo "使用systemd"
+        # 禁用并删除自定义的服务
+        sudo systemctl stop tc_limit_speed.service
+        sudo systemctl disable tc_limit_speed.service
+        sudo rm -f /etc/systemd/system/tc_limit_speed.service
+        # 重新加载systemd服务
+        sudo systemctl daemon-reload
+    else
+        echo "使用rc.local"
+        # 从rc.local脚本中删除Traffic Control规则
+        sudo sed -i '/tc qdisc add dev/d' /etc/rc.d/rc.local
+        sudo sed -i '/tc class add dev/d' /etc/rc.d/rc.local
+    fi
+}
+
 function add_limit {
     # 创建Traffic Control类并设置限速规则
     sudo tc qdisc add dev $IFACE root handle 1: htb default 12
@@ -136,6 +155,9 @@ function remove_limit {
         sudo iptables -D OUTPUT -t mangle -s $TARGET_IP -j MARK --set-mark 12
         sudo iptables -D INPUT -t mangle -d $TARGET_IP -j MARK --set-mark 12
     done
+
+    # 删除Traffic Control规则从启动脚本
+    remove_tc_from_startup
 
     echo "限制的网络速度已移除，IP地址范围从10.0.0.4到10.0.0.15的所有设备不再受影响。"
 }
