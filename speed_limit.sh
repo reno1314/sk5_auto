@@ -138,7 +138,7 @@ function add_limit {
     # 添加Traffic Control规则到启动脚本
     add_tc_to_startup
 
-    echo "网络速度已限制为15 Mbps，IP地址范围从10.0.0.4到10.0.0.15的所有设备受影响。"
+    echo "网络速度已限制为20 Mbps，IP地址范围从10.0.0.4到10.0.0.15的所有设备受影响。"
 }
 
 function remove_limit {
