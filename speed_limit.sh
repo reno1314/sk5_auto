@@ -4,7 +4,7 @@
 IFACE=$(ip -o -4 route show to default | awk '{print $5}')
 
 # 将网络速度限制设置为15 Mbps
-LIMIT_SPEED=15mbit
+LIMIT_SPEED=20mbit
 
 # 检查是否已经安装了版本正确的TC
 check_tc_installed() {
