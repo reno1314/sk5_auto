@@ -130,10 +130,9 @@ delete_traffic_control() {
   # 重新加载 systemd 管理的服务
   systemctl daemon-reload
 
-  # 删除文件
-  #rm -f /root/speed_limit_each.sh
-  find / -name "speed_limit_each.sh" -type f -exec rm -f {} \;
-
+  # 删除 systemd 服务文件
+  rm -f /root/speed_limit_each.sh
+  
   echo "已删除所有的限速规则及服务。"
 }
 
