@@ -5,7 +5,7 @@ script_path="$(readlink -f "$0")"
 script_name="$(basename "$script_path")"
 
 # 设置默认的限速大小（以 Mbit/s 为单位）
-default_limit=8  # 默认为15Mbit/s
+default_limit=5  # 默认为15Mbit/s
 
 # Function to check and install TC on CentOS
 install_tc_centos() {
