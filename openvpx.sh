@@ -163,7 +163,7 @@ if [[ ! -e /etc/openvpn/server/server.conf ]]; then
 	echo "   1) UDP (recommended)"
 	echo "   2) TCP"
 	# read -p "Protocol [1]: " protocol
-	protocol=2
+	protocol=1
 	until [[ -z "$protocol" || "$protocol" =~ ^[12]$ ]]; do
 		echo "$protocol: invalid selection."
 		read -p "Protocol [1]: " protocol
