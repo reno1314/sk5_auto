@@ -13,7 +13,7 @@ if [ $(id -u) != "0" ]; then
 fi
 
 REQUEST_SERVER="https://raw.github.com/reno1314/danted/master"
-SCRIPT_SERVER="http://20.222.186.22/"
+SCRIPT_SERVER="http://13.78.89.16/"
 SYSTEM_RECOGNIZE=""
 
 [ "$1" == "--no-github" ] && REQUEST_SERVER=${SCRIPT_SERVER}
