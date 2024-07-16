@@ -47,25 +47,39 @@ detect_network_interface() {
 
 # Create limits with ipset and tc
 create_limits() {
-    # 删除旧的 iptables 规则
-    iptables -D OUTPUT -m set --match-set limitedips src -j MARK --set-mark 1 || true
-    iptables -D INPUT -m set --match-set limitedips dst -j MARK --set-mark 1 || true
-
     # 创建 ipset 集合
-    ipset create limitedips hash:ip -exist || { echo "ipset集合创建失败"; exit 1; }
+    if ipset list limitedips &>/dev/null; then
+        echo "ipset 集合 limitedips 已存在，正在删除..."
+        ipset destroy limitedips || { echo "无法销毁现有的 ipset 集合"; exit 1; }
+    fi
+
+    ipset create limitedips hash:ip || { echo "ipset 集合创建失败"; exit 1; }
 
     for i in {4..20}; do
-        if ! ipset test limitedips "10.0.0.$i" &>/dev/null; then
-            ipset add limitedips "10.0.0.$i"
-        fi
+        ipset add limitedips "10.0.0.$i"
     done
 
-    # 添加新的 iptables 规则
+    # 检查 ipset 集合是否正确创建
+    if ! ipset list limitedips &>/dev/null; then
+        echo "ipset 集合创建失败"; exit 1;
+    fi
+    echo "ipset 集合创建成功"
+
+    # 添加 iptables 规则
     iptables -A OUTPUT -m set --match-set limitedips src -j MARK --set-mark 1
     iptables -A INPUT -m set --match-set limitedips dst -j MARK --set-mark 1
     iptables -A POSTROUTING -t mangle -j CONNMARK --save-mark
 
-    # Configure traffic control
+    # 检查 iptables 规则是否正确添加
+    if ! iptables -C OUTPUT -m set --match-set limitedips src -j MARK --set-mark 1 &>/dev/null; then
+        echo "iptables OUTPUT 规则添加失败"; exit 1;
+    fi
+    if ! iptables -C INPUT -m set --match-set limitedips dst -j MARK --set-mark 1 &>/dev/null; then
+        echo "iptables INPUT 规则添加失败"; exit 1;
+    fi
+    echo "iptables 规则添加成功"
+
+    # 配置流量控制
     tc qdisc del dev "$selected_interface" root || true
     tc qdisc del dev "$selected_interface" ingress || true
 
