@@ -47,12 +47,22 @@ detect_network_interface() {
 
 # Create limits with ipset and tc
 create_limits() {
+    # 删除旧的 iptables 规则
+    iptables -D OUTPUT -m set --match-set limitedips src -j MARK --set-mark 1 || true
+    iptables -D INPUT -m set --match-set limitedips dst -j MARK --set-mark 1 || true
+
+    # 删除旧的 ipset
     ipset destroy limitedips || true
     ipset create limitedips hash:ip
 
     for i in {4..20}; do
         ipset add limitedips "10.0.0.$i" || true
     done
+
+    # 添加新的 iptables 规则
+    iptables -A OUTPUT -m set --match-set limitedips src -j MARK --set-mark 1
+    iptables -A INPUT -m set --match-set limitedips dst -j MARK --set-mark 1
+    iptables -A POSTROUTING -t mangle -j CONNMARK --save-mark
 
     # Configure traffic control
     tc qdisc del dev "$selected_interface" root || true
@@ -68,6 +78,10 @@ create_limits() {
 
 # Delete limits
 delete_limits() {
+    # 删除旧的 iptables 规则
+    iptables -D OUTPUT -m set --match-set limitedips src -j MARK --set-mark 1 || true
+    iptables -D INPUT -m set --match-set limitedips dst -j MARK --set-mark 1 || true
+    
     ipset destroy limitedips || true
     tc qdisc del dev "$selected_interface" root || true
     echo "已删除所有限速规则"
