@@ -52,7 +52,7 @@ create_limits() {
     iptables -D INPUT -m set --match-set limitedips dst -j MARK --set-mark 1 || true
 
     # 创建 ipset 集合
-    ipset create limitedips hash:ip -exist
+    ipset create limitedips hash:ip -exist || { echo "ipset集合创建失败"; exit 1; }
 
     for i in {4..20}; do
         if ! ipset test limitedips "10.0.0.$i" &>/dev/null; then
