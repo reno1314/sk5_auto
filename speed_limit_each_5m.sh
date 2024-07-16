@@ -47,11 +47,7 @@ detect_network_interface() {
 
 # Create limits with ipset and tc
 create_limits() {
-    # 删除旧的 iptables 规则
-    iptables -D OUTPUT -m set --match-set limitedips src -j MARK --set-mark 1 || true
-    iptables -D INPUT -m set --match-set limitedips dst -j MARK --set-mark 1 || true
-
-    # 删除旧的 ipset
+    # 创建 ipset 集合
     ipset destroy limitedips || true
     ipset create limitedips hash:ip
 
@@ -59,7 +55,10 @@ create_limits() {
         ipset add limitedips "10.0.0.$i" || true
     done
 
-    # 添加新的 iptables 规则
+    # 添加 iptables 规则
+    iptables -D OUTPUT -m set --match-set limitedips src -j MARK --set-mark 1 || true
+    iptables -D INPUT -m set --match-set limitedips dst -j MARK --set-mark 1 || true
+
     iptables -A OUTPUT -m set --match-set limitedips src -j MARK --set-mark 1
     iptables -A INPUT -m set --match-set limitedips dst -j MARK --set-mark 1
     iptables -A POSTROUTING -t mangle -j CONNMARK --save-mark
