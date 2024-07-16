@@ -68,10 +68,15 @@ create_limits() {
     tc qdisc del dev "$selected_interface" root || true
     tc qdisc del dev "$selected_interface" ingress || true
 
+    # 设置总带宽
     tc qdisc add dev "$selected_interface" root handle 1: htb default 30
     tc class add dev "$selected_interface" parent 1: classid 1:1 htb rate 1000mbit
     tc class add dev "$selected_interface" parent 1:1 classid 1:10 htb rate "${default_limit}mbit"
     tc filter add dev "$selected_interface" protocol ip parent 1:0 prio 1 handle 1 fw flowid 1:10
+
+    # 设置入站限速
+    tc qdisc add dev "$selected_interface" handle ffff: ingress
+    tc filter add dev "$selected_interface" protocol ip parent ffff: prio 1 handle 1 fw flowid 1:10
 
     echo "已为每个 IP 地址独立限速 ${default_limit} Mbit/s（下载和上传）"
 }
@@ -84,6 +89,7 @@ delete_limits() {
     
     ipset destroy limitedips || true
     tc qdisc del dev "$selected_interface" root || true
+    tc qdisc del dev "$selected_interface" ingress || true
     echo "已删除所有限速规则"
 }
 
