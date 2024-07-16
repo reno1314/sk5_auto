@@ -55,7 +55,9 @@ create_limits() {
     ipset create limitedips hash:ip -exist
 
     for i in {4..20}; do
-        ipset add limitedips "10.0.0.$i" || true
+        if ! ipset test limitedips "10.0.0.$i" &>/dev/null; then
+            ipset add limitedips "10.0.0.$i"
+        fi
     done
 
     # 添加新的 iptables 规则
