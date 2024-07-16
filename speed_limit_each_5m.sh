@@ -7,17 +7,14 @@ default_limit=5  # 默认为5Mbit/s
 
 # Function to create ipset list and iptables rules
 create_limits() {
-    # 检查并删除现有的 ipset 列表
-    if ipset list limitedips &>/dev/null; then
-        ipset destroy limitedips
-    fi
-
     # 创建 ipset 列表
-    ipset create limitedips hash:ip
+    if ! ipset list limitedips &>/dev/null; then
+        ipset create limitedips hash:ip
+    fi
 
     # 添加 IP 地址到 ipset 列表
     for i in {4..20}; do
-        ipset add limitedips "10.0.0.$i"
+        ipset add limitedips "10.0.0.$i" || true
     done
     
     # 设置 iptables 规则
@@ -25,12 +22,13 @@ create_limits() {
     iptables -A INPUT -m set --match-set limitedips dst -j MARK --set-mark 1
     iptables -A POSTROUTING -t mangle -j CONNMARK --save-mark
 
-    # 使用 tc 进行流量控制
+    # 使用 tc 对标记的流量进行限速
     tc qdisc add dev eth0 root handle 1: htb default 30
     tc class add dev eth0 parent 1: classid 1:1 htb rate 1000mbit
     tc class add dev eth0 parent 1:1 classid 1:10 htb rate "${default_limit}mbit"
     tc filter add dev eth0 protocol ip parent 1:0 prio 1 handle 1 fw flowid 1:10
 
+    # 限制上传
     tc qdisc add dev eth0 handle ffff: ingress
     tc filter add dev eth0 protocol ip parent ffff: prio 1 handle 1 fw flowid 1:10
 
@@ -39,10 +37,12 @@ create_limits() {
 
 # Function to delete ipset list and iptables rules
 delete_limits() {
+    # 删除 iptables 规则
     iptables -D OUTPUT -m set --match-set limitedips src -j MARK --set-mark 1 || true
     iptables -D INPUT -m set --match-set limitedips dst -j MARK --set-mark 1 || true
     ipset destroy limitedips || true
     
+    # 删除 tc 规则
     tc qdisc del dev eth0 root || true
     tc qdisc del dev eth0 ingress || true
 
