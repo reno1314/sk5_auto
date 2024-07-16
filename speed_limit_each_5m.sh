@@ -7,16 +7,25 @@ default_limit=5  # 默认为5Mbit/s
 
 # Function to create ipset list and iptables rules
 create_limits() {
+    # 检查并删除现有的 ipset 列表
+    if ipset list limitedips &>/dev/null; then
+        ipset destroy limitedips
+    fi
+
+    # 创建 ipset 列表
     ipset create limitedips hash:ip
 
+    # 添加 IP 地址到 ipset 列表
     for i in {4..20}; do
         ipset add limitedips "10.0.0.$i"
     done
     
+    # 设置 iptables 规则
     iptables -A OUTPUT -m set --match-set limitedips src -j MARK --set-mark 1
     iptables -A INPUT -m set --match-set limitedips dst -j MARK --set-mark 1
     iptables -A POSTROUTING -t mangle -j CONNMARK --save-mark
 
+    # 使用 tc 进行流量控制
     tc qdisc add dev eth0 root handle 1: htb default 30
     tc class add dev eth0 parent 1: classid 1:1 htb rate 1000mbit
     tc class add dev eth0 parent 1:1 classid 1:10 htb rate "${default_limit}mbit"
