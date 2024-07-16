@@ -87,10 +87,20 @@ delete_limits() {
     iptables -D OUTPUT -m set --match-set limitedips src -j MARK --set-mark 1 || true
     iptables -D INPUT -m set --match-set limitedips dst -j MARK --set-mark 1 || true
     
+    # 销毁 ipset
     ipset destroy limitedips || true
+    
+    # 删除 tc 规则
     tc qdisc del dev "$selected_interface" root || true
     tc qdisc del dev "$selected_interface" ingress || true
-    echo "已删除所有限速规则"
+    
+    # 删除 systemd 服务
+    systemctl stop "$script_name" || true
+    systemctl disable "$script_name" || true
+    rm "/etc/systemd/system/$script_name.service" || true
+    systemctl daemon-reload
+
+    echo "已删除所有限速规则及 systemd 服务"
 }
 
 # 检查脚本参数
