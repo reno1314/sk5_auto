@@ -18,19 +18,19 @@ create_limits() {
     done
     
     # 设置 iptables 规则
-    iptables -A OUTPUT -m set --match-set limitedips src -j MARK --set-mark 1
-    iptables -A INPUT -m set --match-set limitedips dst -j MARK --set-mark 1
-    iptables -A POSTROUTING -t mangle -j CONNMARK --save-mark
+    iptables -A OUTPUT -m set --match-set limitedips src -j MARK --set-mark 1 || true
+    iptables -A INPUT -m set --match-set limitedips dst -j MARK --set-mark 1 || true
+    iptables -A POSTROUTING -t mangle -j CONNMARK --save-mark || true
 
     # 使用 tc 对标记的流量进行限速
-    tc qdisc add dev eth0 root handle 1: htb default 30
-    tc class add dev eth0 parent 1: classid 1:1 htb rate 1000mbit
-    tc class add dev eth0 parent 1:1 classid 1:10 htb rate "${default_limit}mbit"
-    tc filter add dev eth0 protocol ip parent 1:0 prio 1 handle 1 fw flowid 1:10
+    tc qdisc add dev eth0 root handle 1: htb default 30 || true
+    tc class add dev eth0 parent 1: classid 1:1 htb rate 1000mbit || true
+    tc class add dev eth0 parent 1:1 classid 1:10 htb rate "${default_limit}mbit" || true
+    tc filter add dev eth0 protocol ip parent 1:0 prio 1 handle 1 fw flowid 1:10 || true
 
     # 限制上传
-    tc qdisc add dev eth0 handle ffff: ingress
-    tc filter add dev eth0 protocol ip parent ffff: prio 1 handle 1 fw flowid 1:10
+    tc qdisc add dev eth0 handle ffff: ingress || true
+    tc filter add dev eth0 protocol ip parent ffff: prio 1 handle 1 fw flowid 1:10 || true
 
     echo "已为每个 IP 地址独立限速 ${default_limit} Mbit/s（下载和上传）"
 }
