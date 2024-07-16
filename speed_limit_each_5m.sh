@@ -47,18 +47,18 @@ detect_network_interface() {
 
 # Create limits with ipset and tc
 create_limits() {
+    # 删除旧的 iptables 规则
+    iptables -D OUTPUT -m set --match-set limitedips src -j MARK --set-mark 1 || true
+    iptables -D INPUT -m set --match-set limitedips dst -j MARK --set-mark 1 || true
+
     # 创建 ipset 集合
-    ipset destroy limitedips || true
-    ipset create limitedips hash:ip
+    ipset create limitedips hash:ip -exist
 
     for i in {4..20}; do
         ipset add limitedips "10.0.0.$i" || true
     done
 
-    # 添加 iptables 规则
-    iptables -D OUTPUT -m set --match-set limitedips src -j MARK --set-mark 1 || true
-    iptables -D INPUT -m set --match-set limitedips dst -j MARK --set-mark 1 || true
-
+    # 添加新的 iptables 规则
     iptables -A OUTPUT -m set --match-set limitedips src -j MARK --set-mark 1
     iptables -A INPUT -m set --match-set limitedips dst -j MARK --set-mark 1
     iptables -A POSTROUTING -t mangle -j CONNMARK --save-mark
@@ -85,13 +85,13 @@ delete_limits() {
     # 删除旧的 iptables 规则
     iptables -D OUTPUT -m set --match-set limitedips src -j MARK --set-mark 1 || true
     iptables -D INPUT -m set --match-set limitedips dst -j MARK --set-mark 1 || true
-    
-    # 销毁 ipset
-    ipset destroy limitedips || true
-    
+
     # 删除 tc 规则
     tc qdisc del dev "$selected_interface" root || true
     tc qdisc del dev "$selected_interface" ingress || true
+
+    # 销毁 ipset
+    ipset destroy limitedips || true
     
     # 删除 systemd 服务
     systemctl stop "$script_name" || true
@@ -119,7 +119,8 @@ elif [ "$1" == "delete" ]; then
 fi
 
 # 创建 systemd 服务
-cat <<EOF > "/etc/systemd/system/$script_name.service"
+if [ "$1" == "create" ]; then
+  cat <<EOF > "/etc/systemd/system/$script_name.service"
 [Unit]
 Description=Traffic Control Script
 After=network.target
@@ -132,6 +133,7 @@ RemainAfterExit=yes
 WantedBy=multi-user.target
 EOF
 
-systemctl daemon-reload
-systemctl enable "$script_name"
-systemctl start "$script_name"
+  systemctl daemon-reload
+  systemctl enable "$script_name"
+  systemctl start "$script_name"
+fi
