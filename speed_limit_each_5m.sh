@@ -1,38 +1,46 @@
 #!/bin/bash
-set -e
-set -u
 
 # 获取当前脚本的路径和名称
 script_path="$(readlink -f "$0")"
 script_name="$(basename "$script_path")"
+
+# 设置默认的限速大小（以 Mbit/s 为单位）
 default_limit=5  # 默认为5Mbit/s
 
-# Function to check and install required tools
-install_dependencies() {
-  if ! command -v tc &>/dev/null || ! command -v ipset &>/dev/null; then
-    echo "未找到tc或ipset，正在安装..."
-    if [ -e /etc/os-release ]; then
-      source /etc/os-release
-      case "$ID" in
-        "centos"|"rhel")
-          yum install -y iproute ipset || { echo "安装失败"; exit 1; }
-          ;;
-        "debian"|"ubuntu")
-          apt-get update && apt-get install -y iproute2 ipset || { echo "安装失败"; exit 1; }
-          ;;
-        *)
-          echo "未知的Linux分发版，无法自动安装。"
-          exit 1
-          ;;
-      esac
+# Function to check and install TC on CentOS
+install_tc_centos() {
+  if ! command -v tc &>/dev/null; then
+    echo "未找到TC，正在自动安装..."
+    yum install -y iproute
+    if [ $? -eq 0 ]; then
+      echo "TC已成功安装。"
     else
-      echo "未知的Linux分发版，无法自动安装。"
+      echo "TC安装失败，请手动安装后重新运行此脚本。"
       exit 1
     fi
+  else
+    echo "TC已安装。"
   fi
 }
 
-# Detect a suitable network interface
+# Function to check and install TC on Debian/Ubuntu
+install_tc_debian_ubuntu() {
+  if ! command -v tc &>/dev/null; then
+    echo "未找到TC，正在自动安装..."
+    apt-get update
+    apt-get install -y iproute2
+    if [ $? -eq 0 ]; then
+      echo "TC已成功安装。"
+    else
+      echo "TC安装失败，请手动安装后重新运行此脚本。"
+      exit 1
+    fi
+  else
+    echo "TC已安装。"
+  fi
+}
+
+# Function to detect a suitable network interface
 detect_network_interface() {
   network_interfaces=$(ip -o link show | awk -F': ' '!/lo/ && /state UP/{print $2}')
   
@@ -45,110 +53,136 @@ detect_network_interface() {
   echo "已选择网络接口：$selected_interface"
 }
 
-# Create limits with ipset and tc
-create_limits() {
-    # 创建 ipset 集合
-    if ipset list limitedips &>/dev/null; then
-        echo "ipset 集合 limitedips 已存在，正在删除..."
-        ipset destroy limitedips || { echo "无法销毁现有的 ipset 集合"; exit 1; }
-    fi
+# Determine the Linux distribution
+if [ -e /etc/os-release ]; then
+  source /etc/os-release
+  case "$ID" in
+    "centos"|"rhel")
+      if [ "$VERSION_ID" == "7" ]; then
+        install_tc_centos
+      else
+        echo "不支持的CentOS版本。"
+        exit 1
+      fi
+      ;;
+    "debian"|"ubuntu")
+      install_tc_debian_ubuntu
+      ;;
+    *)
+      echo "未知的Linux分发版，无法自动安装TC。"
+      exit 1
+      ;;
+  esac
+else
+  echo "未知的Linux分发版，无法自动安装TC。"
+  exit 1
+fi
 
-    ipset create limitedips hash:ip || { echo "ipset 集合创建失败"; exit 1; }
+# Detect a suitable network interface
+detect_network_interface
 
-    for i in {4..20}; do
-        ipset add limitedips "10.0.0.$i"
-    done
+# 设置总带宽为默认值
+setup_traffic_control() {
+  # 添加下载限速
+  tc qdisc add dev "$selected_interface" root handle 1: htb default 10
+  tc class add dev "$selected_interface" parent 1: classid 1:1 htb rate "${default_limit}Mbit"
 
-    # 检查 ipset 集合是否正确创建
-    if ! ipset list limitedips &>/dev/null; then
-        echo "ipset 集合创建失败"; exit 1;
-    fi
-    echo "ipset 集合创建成功"
-
-    # 添加 iptables 规则
-    iptables -A OUTPUT -m set --match-set limitedips src -j MARK --set-mark 1
-    iptables -A INPUT -m set --match-set limitedips dst -j MARK --set-mark 1
-    iptables -A POSTROUTING -t mangle -j CONNMARK --save-mark
-
-    # 检查 iptables 规则是否正确添加
-    if ! iptables -C OUTPUT -m set --match-set limitedips src -j MARK --set-mark 1 &>/dev/null; then
-        echo "iptables OUTPUT 规则添加失败"; exit 1;
-    fi
-    if ! iptables -C INPUT -m set --match-set limitedips dst -j MARK --set-mark 1 &>/dev/null; then
-        echo "iptables INPUT 规则添加失败"; exit 1;
-    fi
-    echo "iptables 规则添加成功"
-
-    # 配置流量控制
-    tc qdisc del dev "$selected_interface" root || true
-    tc qdisc del dev "$selected_interface" ingress || true
-
-    # 设置总带宽
-    tc qdisc add dev "$selected_interface" root handle 1: htb default 30 || { echo "添加 root qdisc 失败"; exit 1; }
-    tc class add dev "$selected_interface" parent 1: classid 1:1 htb rate 1000mbit || { echo "添加 root class 失败"; exit 1; }
-    tc class add dev "$selected_interface" parent 1:1 classid 1:10 htb rate "${default_limit}mbit" || { echo "添加限速 class 失败"; exit 1; }
-    tc filter add dev "$selected_interface" protocol ip parent 1:0 prio 1 handle 1 fw flowid 1:10 || { echo "添加 filter 失败"; exit 1; }
-
-    # 设置入站限速
-    tc qdisc add dev "$selected_interface" handle ffff: ingress || { echo "添加 ingress qdisc 失败"; exit 1; }
-    tc filter add dev "$selected_interface" protocol ip parent ffff: prio 1 handle 1 fw flowid 1:10 || { echo "添加 ingress filter 失败"; exit 1; }
-
-    echo "已为每个 IP 地址独立限速 ${default_limit} Mbit/s（下载和上传）"
+  # 添加上传限速
+  tc qdisc add dev "$selected_interface" root handle 2: htb default 10
+  tc class add dev "$selected_interface" parent 2: classid 2:1 htb rate "${default_limit}Mbit"
 }
 
-# Delete limits
-delete_limits() {
-    # 删除旧的 iptables 规则
-    iptables -D OUTPUT -m set --match-set limitedips src -j MARK --set-mark 1 || true
-    iptables -D INPUT -m set --match-set limitedips dst -j MARK --set-mark 1 || true
+# 创建限速规则
+create_traffic_control() {
+  ip_addresses=("10.0.0.4" "10.0.0.5" "10.0.0.6" "10.0.0.7" "10.0.0.8" "10.0.0.11" "10.0.0.12" "10.0.0.13" "10.0.0.14" "10.0.0.15")
 
-    # 删除 tc 规则
-    tc qdisc del dev "$selected_interface" root || true
-    tc qdisc del dev "$selected_interface" ingress || true
+  class_id_counter=2
 
-    # 销毁 ipset
-    ipset destroy limitedips || true
-    
-    # 删除 systemd 服务
-    systemctl stop "$script_name" || true
-    systemctl disable "$script_name" || true
-    rm "/etc/systemd/system/$script_name.service" || true
-    systemctl daemon-reload
+  for ip in "${ip_addresses[@]}"; do
+    # 下载限速
+    class_id="1:$((class_id_counter))"
+    tc class add dev "$selected_interface" parent 1:1 classid $class_id htb rate "${default_limit}Mbit"
+    tc filter add dev "$selected_interface" parent 1:0 protocol ip prio 1 u32 match ip src $ip flowid $class_id
+    echo "已为IP地址 $ip 创建下载限速规则"
 
-    echo "已删除所有限速规则及 systemd 服务"
+    # 上传限速
+    class_id="2:$((class_id_counter))"
+    tc class add dev "$selected_interface" parent 2:1 classid $class_id htb rate "${default_limit}Mbit"
+    tc filter add dev "$selected_interface" parent 2:0 protocol ip prio 1 u32 match ip dst $ip flowid $class_id
+    echo "已为IP地址 $ip 创建上传限速规则"
+
+    class_id_counter=$((class_id_counter + 1))
+  done
+
+  echo "已完成配置，每个IP地址独立限速${default_limit}Mbit带宽。"
+}
+
+# 删除限速规则
+delete_traffic_control() {
+  # 删除根分类和所有子分类
+  tc qdisc del dev "$selected_interface" root
+
+  # 删除分类和过滤器
+  for i in {2..11}; do
+    tc class del dev "$selected_interface" classid 1:$i
+    tc class del dev "$selected_interface" classid 2:$i
+    tc filter del dev "$selected_interface" parent 1: protocol ip prio 1 u32
+    tc filter del dev "$selected_interface" parent 2: protocol ip prio 1 u32
+  done
+
+  # 停止并禁用 systemd 服务
+  systemctl stop "$script_name"
+  systemctl disable "$script_name"
+
+  # 删除 systemd 服务文件
+  rm "/etc/systemd/system/$script_name.service"
+
+  # 重新加载 systemd 管理的服务
+  systemctl daemon-reload
+
+  # 删除文件
+  rm -f /root/speed_limit_each.sh
+  
+  echo "已删除所有的限速规则及服务。"
 }
 
 # 检查脚本参数
 if [ "$1" != "create" ] && [ "$1" != "delete" ]; then
-    echo "Usage: $0 [create | delete]"
-    exit 1
+  echo "Usage: $0 [create | delete]"
+  exit 1
 fi
 
-# 安装依赖项
-install_dependencies
-detect_network_interface
-
 if [ "$1" == "create" ]; then
-    create_limits
+  setup_traffic_control
+  create_traffic_control
 elif [ "$1" == "delete" ]; then
-    delete_limits
+  delete_traffic_control
 fi
 
-# 创建 systemd 服务
+# 获取脚本的路径和名称
+script_path="$(readlink -f "$0")"
+script_name="$(basename "$script_path")"
+
+# 获取脚本路径
+your_tc_script="$script_path"
+
+# 将服务设置为在启动时自动运行
 if [ "$1" == "create" ]; then
+  # 创建一个 systemd 服务单元
   cat <<EOF > "/etc/systemd/system/$script_name.service"
 [Unit]
 Description=Traffic Control Script
 After=network.target
 
 [Service]
-ExecStart=$script_path create
+ExecStart=$your_tc_script create
 RemainAfterExit=yes
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
+  # 启用并运行服务
   systemctl daemon-reload
   systemctl enable "$script_name"
   systemctl start "$script_name"
