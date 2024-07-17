@@ -116,19 +116,19 @@ create_traffic_control() {
   for ip in "${ip_addresses[@]}"; do
     # 下载限速
     class_id="1:$class_id_counter"
-    tc class add dev "$selected_interface" parent 1:1 classid $class_id htb rate "${default_limit}Mbit" || {
+    if ! tc class add dev "$selected_interface" parent 1:1 classid $class_id htb rate "${default_limit}Mbit"; then
       echo "添加类失败：$class_id"
       continue
-    }
+    fi
     tc filter add dev "$selected_interface" parent 1:0 protocol ip prio 1 u32 match ip src $ip flowid $class_id
     echo "已为IP地址 $ip 创建下载限速规则"
 
     # 上传限速
     class_id="2:$class_id_counter"
-    tc class add dev "$selected_interface" parent 2:1 classid $class_id htb rate "${default_limit}Mbit" || {
+    if ! tc class add dev "$selected_interface" parent 2:1 classid $class_id htb rate "${default_limit}Mbit"; then
       echo "添加类失败：$class_id"
       continue
-    }
+    fi
     tc filter add dev "$selected_interface" parent 2:0 protocol ip prio 1 u32 match ip dst $ip flowid $class_id
     echo "已为IP地址 $ip 创建上传限速规则"
 
