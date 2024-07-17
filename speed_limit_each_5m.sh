@@ -81,15 +81,30 @@ fi
 # Detect a suitable network interface
 detect_network_interface
 
+# 清理现有的 TC 配置
+tc qdisc del dev "$selected_interface" root 2>/dev/null
+
 # 设置总带宽为默认值
 setup_traffic_control() {
   # 添加下载限速
-  tc qdisc add dev "$selected_interface" root handle 1: htb default 10
-  tc class add dev "$selected_interface" parent 1: classid 1:1 htb rate "${default_limit}Mbit"
+  tc qdisc add dev "$selected_interface" root handle 1: htb default 10 || {
+    echo "下载限速配置失败，可能是规则已存在。"
+    return
+  }
+  tc class add dev "$selected_interface" parent 1: classid 1:1 htb rate "${default_limit}Mbit" || {
+    echo "添加类失败：1:1"
+    return
+  }
 
   # 添加上传限速
-  tc qdisc add dev "$selected_interface" root handle 2: htb default 10
-  tc class add dev "$selected_interface" parent 2: classid 2:1 htb rate "${default_limit}Mbit"
+  tc qdisc add dev "$selected_interface" root handle 2: htb default 10 || {
+    echo "上传限速配置失败，可能是规则已存在。"
+    return
+  }
+  tc class add dev "$selected_interface" parent 2: classid 2:1 htb rate "${default_limit}Mbit" || {
+    echo "添加类失败：2:1"
+    return
+  }
 }
 
 # 创建限速规则
@@ -100,14 +115,20 @@ create_traffic_control() {
 
   for ip in "${ip_addresses[@]}"; do
     # 下载限速
-    class_id="1:$((class_id_counter))"
-    tc class add dev "$selected_interface" parent 1:1 classid $class_id htb rate "${default_limit}Mbit"
+    class_id="1:$class_id_counter"
+    tc class add dev "$selected_interface" parent 1:1 classid $class_id htb rate "${default_limit}Mbit" || {
+      echo "添加类失败：$class_id"
+      continue
+    }
     tc filter add dev "$selected_interface" parent 1:0 protocol ip prio 1 u32 match ip src $ip flowid $class_id
     echo "已为IP地址 $ip 创建下载限速规则"
 
     # 上传限速
-    class_id="2:$((class_id_counter))"
-    tc class add dev "$selected_interface" parent 2:1 classid $class_id htb rate "${default_limit}Mbit"
+    class_id="2:$class_id_counter"
+    tc class add dev "$selected_interface" parent 2:1 classid $class_id htb rate "${default_limit}Mbit" || {
+      echo "添加类失败：$class_id"
+      continue
+    }
     tc filter add dev "$selected_interface" parent 2:0 protocol ip prio 1 u32 match ip dst $ip flowid $class_id
     echo "已为IP地址 $ip 创建上传限速规则"
 
@@ -120,14 +141,14 @@ create_traffic_control() {
 # 删除限速规则
 delete_traffic_control() {
   # 删除根分类和所有子分类
-  tc qdisc del dev "$selected_interface" root 2>/dev/null
+  tc qdisc del dev "$selected_interface" root
 
   # 删除分类和过滤器
-  for i in $(seq 2 $class_id_counter); do
+  for i in {2..11}; do
     tc class del dev "$selected_interface" classid 1:$i 2>/dev/null
     tc class del dev "$selected_interface" classid 2:$i 2>/dev/null
-    tc filter del dev "$selected_interface" parent 1: protocol ip prio 1 u32 match ip src 0.0.0.0/0 flowid 1:$i 2>/dev/null
-    tc filter del dev "$selected_interface" parent 2: protocol ip prio 1 u32 match ip dst 0.0.0.0/0 flowid 2:$i 2>/dev/null
+    tc filter del dev "$selected_interface" parent 1: protocol ip prio 1 u32 2>/dev/null
+    tc filter del dev "$selected_interface" parent 2: protocol ip prio 1 u32 2>/dev/null
   done
 
   # 停止并禁用 systemd 服务
@@ -159,6 +180,13 @@ elif [ "$1" == "delete" ]; then
   delete_traffic_control
 fi
 
+# 获取脚本的路径和名称
+script_path="$(readlink -f "$0")"
+script_name="$(basename "$script_path")"
+
+# 获取脚本路径
+your_tc_script="$script_path"
+
 # 将服务设置为在启动时自动运行
 if [ "$1" == "create" ]; then
   # 创建一个 systemd 服务单元
@@ -168,7 +196,7 @@ Description=Traffic Control Script
 After=network.target
 
 [Service]
-ExecStart=$script_path create
+ExecStart=$your_tc_script create
 RemainAfterExit=yes
 
 [Install]
