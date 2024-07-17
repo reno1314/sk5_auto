@@ -83,6 +83,7 @@ detect_network_interface
 
 # 设置总带宽为默认值
 setup_traffic_control() {
+  tc qdisc del dev "$selected_interface" root 2>/dev/null
   tc qdisc add dev "$selected_interface" root handle 1: htb default 10
   tc class add dev "$selected_interface" parent 1: classid 1:1 htb rate "${default_limit}Mbit"
 }
@@ -124,10 +125,10 @@ create_upload_limit() {
 
 # 删除限速规则
 delete_traffic_control() {
-  tc qdisc del dev "$selected_interface" root
+  tc qdisc del dev "$selected_interface" root 2>/dev/null
 
   for i in {2..11}; do
-    tc class del dev "$selected_interface" classid 1:$i
+    tc class del dev "$selected_interface" classid 1:$i 2>/dev/null
     tc filter del dev "$selected_interface" parent 1: protocol ip prio 1 u32
   done
 
@@ -154,13 +155,6 @@ elif [ "$1" == "delete" ]; then
   delete_traffic_control
 fi
 
-# 获取脚本的路径和名称
-script_path="$(readlink -f "$0")"
-script_name="$(basename "$script_path")"
-
-# 获取脚本的路径
-your_tc_script="$script_path"
-
 # 将服务设置为在启动时自动运行
 if [ "$1" == "create" ]; then
   cat <<EOF > "/etc/systemd/system/$script_name.service"
@@ -169,7 +163,7 @@ Description=Traffic Control Script
 After=network.target
 
 [Service]
-ExecStart=$your_tc_script create
+ExecStart=$script_path create
 RemainAfterExit=yes
 
 [Install]
