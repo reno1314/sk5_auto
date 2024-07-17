@@ -1,210 +1,50 @@
 #!/bin/bash
 
-# 获取当前脚本的路径和名称
-script_path="$(readlink -f "$0")"
-script_name="$(basename "$script_path")"
-
-# 设置默认的限速大小（以 Mbit/s 为单位）
-default_limit=5  # 默认为5Mbit/s
-
-# Function to check and install TC on CentOS
-install_tc_centos() {
-  if ! command -v tc &>/dev/null; then
-    echo "未找到TC，正在自动安装..."
-    yum install -y iproute
-    if [ $? -eq 0 ]; then
-      echo "TC已成功安装。"
-    else
-      echo "TC安装失败，请手动安装后重新运行此脚本。"
-      exit 1
-    fi
-  else
-    echo "TC已安装。"
-  fi
-}
-
-# Function to check and install TC on Debian/Ubuntu
-install_tc_debian_ubuntu() {
-  if ! command -v tc &>/dev/null; then
-    echo "未找到TC，正在自动安装..."
-    apt-get update
-    apt-get install -y iproute2
-    if [ $? -eq 0 ]; then
-      echo "TC已成功安装。"
-    else
-      echo "TC安装失败，请手动安装后重新运行此脚本。"
-      exit 1
-    fi
-  else
-    echo "TC已安装。"
-  fi
-}
-
-# Function to detect a suitable network interface
-detect_network_interface() {
-  network_interfaces=$(ip -o link show | awk -F': ' '!/lo/ && /state UP/{print $2}')
-  
-  if [ -z "$network_interfaces" ]; then
-    echo "未找到适用的网络接口，无法进行Traffic Control配置。"
-    exit 1
-  fi
-  
-  selected_interface=$(echo "$network_interfaces" | awk 'NR==1{print $1}')
-  echo "已选择网络接口：$selected_interface"
-}
-
-# Determine the Linux distribution
-if [ -e /etc/os-release ]; then
-  source /etc/os-release
-  case "$ID" in
-    "centos"|"rhel")
-      if [ "$VERSION_ID" == "7" ]; then
-        install_tc_centos
-      else
-        echo "不支持的CentOS版本。"
-        exit 1
-      fi
-      ;;
-    "debian"|"ubuntu")
-      install_tc_debian_ubuntu
-      ;;
-    *)
-      echo "未知的Linux分发版，无法自动安装TC。"
-      exit 1
-      ;;
-  esac
-else
-  echo "未知的Linux分发版，无法自动安装TC。"
-  exit 1
-fi
-
-# Detect a suitable network interface
-detect_network_interface
+# 获取网络接口
+INTERFACE="eth0"
+LIMIT=5Mbit
 
 # 清理现有的 TC 配置
-tc qdisc del dev "$selected_interface" root 2>/dev/null
+tc qdisc del dev "$INTERFACE" root 2>/dev/null
 
-# 设置总带宽为默认值
-setup_traffic_control() {
-  # 添加下载限速
-  tc qdisc add dev "$selected_interface" root handle 1: htb default 10 || {
-    echo "下载限速配置失败，可能是规则已存在。"
-    return
-  }
-  tc class add dev "$selected_interface" parent 1: classid 1:1 htb rate "${default_limit}Mbit" || {
-    echo "添加类失败：1:1"
-    return
-  }
+# 设置主队列规则
+tc qdisc add dev "$INTERFACE" root handle 1: htb default 10
 
-  # 添加上传限速
-  tc qdisc add dev "$selected_interface" root handle 2: htb default 10 || {
-    echo "上传限速配置失败，可能是规则已存在。"
-    return
-  }
-  tc class add dev "$selected_interface" parent 2: classid 2:1 htb rate "${default_limit}Mbit" || {
-    echo "添加类失败：2:1"
-    return
-  }
-}
+# 添加主类
+tc class add dev "$INTERFACE" parent 1: classid 1:1 htb rate $LIMIT
 
-# 创建限速规则
-create_traffic_control() {
-  ip_addresses=("10.0.0.4" "10.0.0.5" "10.0.0.6" "10.0.0.7" "10.0.0.8" "10.0.0.11" "10.0.0.12" "10.0.0.13" "10.0.0.14" "10.0.0.15")
+# 创建 IP 限速规则
+IP_ADDRESSES=("10.0.0.4" "10.0.0.5" "10.0.0.6" "10.0.0.7" "10.0.0.8" "10.0.0.11" "10.0.0.12" "10.0.0.13" "10.0.0.14" "10.0.0.15")
 
-  class_id_counter=2
-
-  for ip in "${ip_addresses[@]}"; do
+for IP in "${IP_ADDRESSES[@]}"; do
     # 下载限速
-    class_id="1:$class_id_counter"
-    if ! tc class add dev "$selected_interface" parent 1:1 classid $class_id htb rate "${default_limit}Mbit"; then
-      echo "添加类失败：$class_id"
-      continue
-    fi
-    tc filter add dev "$selected_interface" parent 1:0 protocol ip prio 1 u32 match ip src $ip flowid $class_id
-    echo "已为IP地址 $ip 创建下载限速规则"
+    tc class add dev "$INTERFACE" parent 1:1 classid 1:2 htb rate $LIMIT
+    tc filter add dev "$INTERFACE" protocol ip parent 1:0 prio 1 u32 match ip src "$IP" flowid 1:2
+    echo "已为IP地址 $IP 创建下载限速规则"
 
     # 上传限速
-    class_id="2:$class_id_counter"
-    if ! tc class add dev "$selected_interface" parent 2:1 classid $class_id htb rate "${default_limit}Mbit"; then
-      echo "添加类失败：$class_id"
-      continue
-    fi
-    tc filter add dev "$selected_interface" parent 2:0 protocol ip prio 1 u32 match ip dst $ip flowid $class_id
-    echo "已为IP地址 $ip 创建上传限速规则"
+    tc class add dev "$INTERFACE" parent 1:1 classid 2:2 htb rate $LIMIT
+    tc filter add dev "$INTERFACE" protocol ip parent 2:0 prio 1 u32 match ip dst "$IP" flowid 2:2
+    echo "已为IP地址 $IP 创建上传限速规则"
+done
 
-    class_id_counter=$((class_id_counter + 1))
-  done
+echo "已完成配置，每个IP地址独立限速 $LIMIT 带宽。"
 
-  echo "已完成配置，每个IP地址独立限速${default_limit}Mbit带宽。"
-}
-
-# 删除限速规则
-delete_traffic_control() {
-  # 删除根分类和所有子分类
-  tc qdisc del dev "$selected_interface" root
-
-  # 删除分类和过滤器
-  for i in {2..11}; do
-    tc class del dev "$selected_interface" classid 1:$i 2>/dev/null
-    tc class del dev "$selected_interface" classid 2:$i 2>/dev/null
-    tc filter del dev "$selected_interface" parent 1: protocol ip prio 1 u32 2>/dev/null
-    tc filter del dev "$selected_interface" parent 2: protocol ip prio 1 u32 2>/dev/null
-  done
-
-  # 停止并禁用 systemd 服务
-  systemctl stop "$script_name"
-  systemctl disable "$script_name"
-
-  # 删除 systemd 服务文件
-  rm "/etc/systemd/system/$script_name.service"
-
-  # 重新加载 systemd 管理的服务
-  systemctl daemon-reload
-
-  # 删除文件
-  rm -f /root/speed_limit_each.sh
-  
-  echo "已删除所有的限速规则及服务。"
-}
-
-# 检查脚本参数
-if [ "$1" != "create" ] && [ "$1" != "delete" ]; then
-  echo "Usage: $0 [create | delete]"
-  exit 1
-fi
-
-if [ "$1" == "create" ]; then
-  setup_traffic_control
-  create_traffic_control
-elif [ "$1" == "delete" ]; then
-  delete_traffic_control
-fi
-
-# 获取脚本的路径和名称
-script_path="$(readlink -f "$0")"
-script_name="$(basename "$script_path")"
-
-# 获取脚本路径
-your_tc_script="$script_path"
-
-# 将服务设置为在启动时自动运行
-if [ "$1" == "create" ]; then
-  # 创建一个 systemd 服务单元
-  cat <<EOF > "/etc/systemd/system/$script_name.service"
+# 创建 systemd 服务
+cat <<EOF > "/etc/systemd/system/speed_limit_each.sh.service"
 [Unit]
 Description=Traffic Control Script
 After=network.target
 
 [Service]
-ExecStart=$your_tc_script create
+ExecStart=$(realpath "$0") create
 RemainAfterExit=yes
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-  # 启用并运行服务
-  systemctl daemon-reload
-  systemctl enable "$script_name"
-  systemctl start "$script_name"
-fi
+# 启用并启动服务
+systemctl daemon-reload
+systemctl enable speed_limit_each.sh.service
+systemctl start speed_limit_each.sh.service
