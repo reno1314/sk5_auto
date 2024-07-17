@@ -111,31 +111,38 @@ create_upload_limit() {
 
   for ip in "${ip_addresses[@]}"; do
     class_id="1:$((class_id_counter++))"
-
-    # 删除已存在的类和过滤器
-    tc class del dev "$selected_interface" classid $class_id 2>/dev/null
-    tc filter del dev "$selected_interface" parent 1: protocol ip prio 1 u32 match ip dst $ip 2>/dev/null
-
-    tc class add dev "$selected_interface" parent 1:1 classid $class_id htb rate "${default_limit}Mbit"
-    tc filter add dev "$selected_interface" parent 1:0 protocol ip prio 1 u32 match ip dst $ip flowid $class_id
-    echo "已为IP地址 $ip 创建上传限速规则"
+    
+    if ! tc class show dev "$selected_interface" | grep -q "$class_id"; then
+      tc class add dev "$selected_interface" parent 1:1 classid $class_id htb rate "${default_limit}Mbit"
+      tc filter add dev "$selected_interface" parent 1:0 protocol ip prio 1 u32 match ip dst $ip flowid $class_id
+      echo "已为IP地址 $ip 创建上传限速规则"
+    else
+      echo "上传限速规则已存在，跳过 $ip"
+    fi
   done
 }
 
 # 删除限速规则
 delete_traffic_control() {
-  tc qdisc del dev "$selected_interface" root
+  tc qdisc del dev "$selected_interface" root 2>/dev/null
 
   for i in {2..11}; do
     tc class del dev "$selected_interface" classid 1:$i 2>/dev/null
-    tc filter del dev "$selected_interface" parent 1: protocol ip prio 1 u32 match ip dst "10.0.0.$i" 2>/dev/null
+    tc filter del dev "$selected_interface" parent 1: protocol ip prio 1 u32 match ip src 10.0.0.$i 2>/dev/null
   done
 
+  # 停止并禁用 systemd 服务
   systemctl stop "$script_name"
   systemctl disable "$script_name"
-  rm "/etc/systemd/system/$script_name.service"
+
+  # 删除 systemd 服务文件
+  rm -f "/etc/systemd/system/$script_name.service"
+
+  # 重新加载 systemd 管理的服务
   systemctl daemon-reload
-  rm -f /root/speed_limit_each.sh
+
+  # 删除脚本本身
+  rm -f "$script_path"
   
   echo "已删除所有的限速规则及服务。"
 }
@@ -153,10 +160,6 @@ if [ "$1" == "create" ]; then
 elif [ "$1" == "delete" ]; then
   delete_traffic_control
 fi
-
-# 获取脚本的路径和名称
-script_path="$(readlink -f "$0")"
-script_name="$(basename "$script_path")"
 
 # 获取脚本的路径
 your_tc_script="$script_path"
