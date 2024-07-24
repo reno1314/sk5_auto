@@ -68,7 +68,7 @@ clean_memory() {
     fi
 
     # 每隔60秒检查一次
-    sleep 60
+    sleep 900
   done
 }
 
