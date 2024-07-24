@@ -3,12 +3,15 @@
 # 设置内存使用率的阈值，超过此值将清理缓存
 THRESHOLD=80
 
+# ANSI颜色代码
+GREEN='\033[0;32m'
+NC='\033[0m' # No Color
+
 # 安装命令
 install() {
   # 将脚本复制到/usr/local/bin，并赋予执行权限
   cp $0 /usr/local/bin/memory_cleaner.sh
   chmod +x /usr/local/bin/memory_cleaner.sh
-  echo "内存清理脚本已安装到/usr/local/bin/memory_cleaner.sh"
 
   # 创建systemd服务文件以实现开机自启
   cat <<EOF >/etc/systemd/system/memory_cleaner.service
@@ -27,7 +30,8 @@ EOF
   systemctl daemon-reload
   systemctl enable memory_cleaner.service
   systemctl start memory_cleaner.service
-  echo "内存清理服务已启动并设置为开机自启"
+
+  echo -e "${GREEN}内存清理服务已安装成功并启动。${NC}"
 }
 
 # 卸载命令
@@ -35,7 +39,6 @@ uninstall() {
   # 停止服务并禁用开机自启
   systemctl stop memory_cleaner.service
   systemctl disable memory_cleaner.service
-  echo "内存清理服务已停止并取消开机自启"
 
   # 删除systemd服务文件并重新加载配置
   rm -f /etc/systemd/system/memory_cleaner.service
@@ -43,11 +46,13 @@ uninstall() {
 
   # 从/usr/local/bin删除脚本
   rm -f /usr/local/bin/memory_cleaner.sh
-  echo "内存清理脚本已从/usr/local/bin删除"
+
+  echo -e "${GREEN}内存清理脚本已被完全卸载。${NC}"
 }
 
 # 清理内存的函数
 clean_memory() {
+  echo -e "${GREEN}内存清理服务开始运行...${NC}"
   while true; do
     # 获取总内存和可用内存
     total=$(grep MemTotal /proc/meminfo | awk '{print $2}')
