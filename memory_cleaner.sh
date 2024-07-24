@@ -67,7 +67,7 @@ clean_memory() {
       echo 3 > /proc/sys/vm/drop_caches
     fi
 
-    # 每隔60秒检查一次
+    # 每隔15分检查一次
     sleep 900
   done
 }
