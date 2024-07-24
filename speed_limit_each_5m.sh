@@ -5,7 +5,7 @@ script_path="$(readlink -f "$0")"
 script_name="$(basename "$script_path")"
 
 # 设置默认的限速大小（以 Mbit/s 为单位）
-default_limit=5.1  # 默认为 5.1 Mbit/s
+default_limit=5.2  # 默认为 5.2 Mbit/s
 
 # Function to install TC on supported distros
 install_tc() {
