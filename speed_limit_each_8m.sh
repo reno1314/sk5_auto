@@ -73,7 +73,7 @@ create_traffic_control() {
   do
     # Use different classid format: 1:2 + incrementing integer
     class_id="1:$((class_id_counter++))"
-    tc class add dev "$selected_interface" parent 1:1 classid $class_id htb rate "${default_limit}Mbit" ceil "${default_limit}Mbit"
+    tc class add dev "$selected_interface" parent 1:1 classid $class_id htb rate "${default_limit}Mbit"
     tc filter add dev "$selected_interface" parent 1:0 protocol ip prio 1 u32 match ip src $ip flowid $class_id
     echo -e "\e[32m已为IP地址 $ip 创建独立限速规则\e[0m"
   done
