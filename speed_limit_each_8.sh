@@ -10,33 +10,33 @@ default_limit=8  # 默认为15Mbit/s
 # Function to check and install TC on CentOS
 install_tc_centos() {
   if ! command -v tc &>/dev/null; then
-    echo "未找到TC，正在自动安装..."
+    echo -e "\e[32m未找到TC，正在自动安装...\e[0m"
     yum install -y iproute
     if [ $? -eq 0 ]; then
-      echo "TC已成功安装。"
+      echo -e "\e[32mTC已成功安装。\e[0m"
     else
-      echo "TC安装失败，请手动安装后重新运行此脚本。"
+      echo -e "\e[31mTC安装失败，请手动安装后重新运行此脚本。\e[0m"
       exit 1
     fi
   else
-    echo "TC已安装。"
+    echo -e "\e[32mTC已安装。\e[0m"
   fi
 }
 
 # Function to check and install TC on Debian/Ubuntu
 install_tc_debian_ubuntu() {
   if ! command -v tc &>/dev/null; then
-    echo "未找到TC，正在自动安装..."
+    echo -e "\e[32m未找到TC，正在自动安装...\e[0m"
     apt-get update
     apt-get install -y iproute2
     if [ $? -eq 0 ]; then
-      echo "TC已成功安装。"
+      echo -e "\e[32mTC已成功安装。\e[0m"
     else
-      echo "TC安装失败，请手动安装后重新运行此脚本。"
+      echo -e "\e[31mTC安装失败，请手动安装后重新运行此脚本。\e[0m"
       exit 1
     fi
   else
-    echo "TC已安装。"
+    echo -e "\e[32mTC已安装。\e[0m"
   fi
 }
 
@@ -46,13 +46,13 @@ detect_network_interface() {
   network_interfaces=$(ip -o link show | awk -F': ' '!/lo/ && /state UP/{print $2}')
   
   if [ -z "$network_interfaces" ]; then
-    echo "未找到适用的网络接口，无法进行Traffic Control配置。"
+    echo -e "\e[31m未找到适用的网络接口，无法进行Traffic Control配置。\e[0m"
     exit 1
   fi
   
   # Automatically select the first suitable network interface
   selected_interface=$(echo "$network_interfaces" | awk 'NR==1{print $1}')
-  echo "已选择网络接口：$selected_interface"
+  echo -e "\e[32m已选择网络接口：$selected_interface\e[0m"
 }
 
 # Determine the Linux distribution
@@ -63,7 +63,7 @@ if [ -e /etc/os-release ]; then
       if [ "$VERSION_ID" == "7" ]; then
         install_tc_centos
       else
-        echo "不支持的CentOS版本。"
+        echo -e "\e[31m不支持的CentOS版本。\e[0m"
         exit 1
       fi
       ;;
@@ -71,12 +71,12 @@ if [ -e /etc/os-release ]; then
       install_tc_debian_ubuntu
       ;;
     *)
-      echo "未知的Linux分发版，无法自动安装TC。"
+      echo -e "\e[31m未知的Linux分发版，无法自动安装TC。\e[0m"
       exit 1
       ;;
   esac
 else
-  echo "未知的Linux分发版，无法自动安装TC。"
+  echo -e "\e[31m未知的Linux分发版，无法自动安装TC。\e[0m"
   exit 1
 fi
 
@@ -103,10 +103,10 @@ create_traffic_control() {
     class_id="1:$((class_id_counter++))"
     tc class add dev "$selected_interface" parent 1:1 classid $class_id htb rate "${default_limit}Mbit"
     tc filter add dev "$selected_interface" parent 1:0 protocol ip prio 1 u32 match ip src $ip flowid $class_id
-    echo "已为IP地址 $ip 创建独立限速规则"
+    echo -e "\e[32m已为IP地址 $ip 创建独立限速规则\e[0m"
   done
 
-  echo "已完成配置，每个不同的IP地址独立限速${default_limit}Mbit带宽。"
+  echo -e "\e[32m已完成配置，每个不同的IP地址独立限速${default_limit}Mbit带宽。\e[0m"
 }
 
 # 删除限速规则
@@ -133,7 +133,7 @@ delete_traffic_control() {
   # 删除文件
   rm -f /root/speed_limit_each.sh
   
-  echo "已删除所有的限速规则及服务。"
+  echo -e "\e[32m已删除所有的限速规则及服务。\e[0m"
 }
 
 # 检查脚本参数
