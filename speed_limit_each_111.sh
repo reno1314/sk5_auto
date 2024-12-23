@@ -1,4 +1,5 @@
 #!/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 # 设置默认的限速大小（以 Mbit/s 为单位）
 default_limit=6  # 默认为8Mbit/s
