@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 设置默认的限速大小（以 Mbit/s 为单位）
-default_limit=8  # 默认为8Mbit/s
+default_limit=6  # 默认为8Mbit/s
 
 # 选择网络接口
 interface="eth0"  # 请根据实际情况修改
