@@ -73,22 +73,22 @@ fi
 
 install_base() {
     if [[ x"${release}" == x"centos" ]]; then
-        yum install wget curl tar jq unzip -y
+        yum install wget curl tar jq -y
     else
-        apt update
-        apt install wget curl tar jq unzip -y
+        apt install wget curl tar jq -y
     fi
 }
 
+#This function will be called when user installed x-ui out of sercurity
 config_after_install() {
     echo -e "${yellow}出于安全考虑，安装/更新完成后需要强制修改端口与账户密码${plain}"
-    read -p "确认是否继续,如选择n则跳过本次端口与账户密码设定[y/n]": config_confirm
+    config_confirm=y
     if [[ x"${config_confirm}" == x"y" || x"${config_confirm}" == x"Y" ]]; then
-        read -p "请设置您的账户名:" config_account
+        config_account=reno1314
         echo -e "${yellow}您的账户名将设定为:${config_account}${plain}"
-        read -p "请设置您的账户密码:" config_password
+        config_password=123
         echo -e "${yellow}您的账户密码将设定为:${config_password}${plain}"
-        read -p "请设置面板访问端口:" config_port
+        config_port=59808
         echo -e "${yellow}您的面板访问端口将设定为:${config_port}${plain}"
         echo -e "${yellow}确认设定,设定中${plain}"
         /usr/local/x-ui/x-ui setting -username ${config_account} -password ${config_password}
@@ -117,7 +117,7 @@ config_after_install() {
 }
 
 install_x-ui() {
-    systemctl stop x-ui 2>/dev/null
+    systemctl stop x-ui
     cd /usr/local/
 
     if [ $# == 0 ]; then
@@ -144,25 +144,17 @@ install_x-ui() {
     fi
 
     if [[ -e /usr/local/x-ui/ ]]; then
-        rm -rf /usr/local/x-ui/
+        rm /usr/local/x-ui/ -rf
     fi
 
     tar zxvf x-ui-linux-${arch}.tar.gz
-    rm -f x-ui-linux-${arch}.tar.gz
-
-    # 替换 xray 版本为 1.8.3
-    echo -e "${yellow}下载并替换 xray 版本为 1.8.3${plain}"
-    cd /usr/local/x-ui/bin/
-    wget -N --no-check-certificate https://github.com/XTLS/Xray-core/releases/download/v1.8.3/Xray-linux-${arch}.zip
-    unzip -o Xray-linux-${arch}.zip
-    rm -f Xray-linux-${arch}.zip
-    chmod +x xray-linux-${arch}
-    cd -
-
+    rm x-ui-linux-${arch}.tar.gz -f
+    cd x-ui
+    chmod +x x-ui bin/xray-linux-${arch}
+    cp -f x-ui.service /etc/systemd/system/
     wget --no-check-certificate -O /usr/bin/x-ui https://raw.githubusercontent.com/FranzKafkaYu/x-ui/main/x-ui.sh
     chmod +x /usr/local/x-ui/x-ui.sh
     chmod +x /usr/bin/x-ui
-
     config_after_install
     #echo -e "如果是全新安装，默认网页端口为 ${green}54321${plain}，用户名和密码默认都是 ${green}admin${plain}"
     #echo -e "请自行确保此端口没有被其他程序占用，${yellow}并且确保 54321 端口已放行${plain}"
@@ -173,8 +165,7 @@ install_x-ui() {
     systemctl daemon-reload
     systemctl enable x-ui
     systemctl start x-ui
-
-    echo -e "${green}x-ui v${last_version}${plain} 安装完成，面板已启动，xray 已升级到 1.8.3"
+    echo -e "${green}x-ui v${last_version}${plain} 安装完成，面板已启动，"
     echo -e ""
     echo -e "x-ui 管理脚本使用方法: "
     echo -e "----------------------------------------------"
