@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 手动设置端口
-PORT=8080
+PORT=11111
 
 # 更新系统并安装所需软件
 apt update && apt install -y apache2 php php-cli php-xml unzip
