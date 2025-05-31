@@ -216,6 +216,84 @@ backup_and_prepare_webroot() {
     fi
 }
 
+install_curl_if_missing() {
+    if command -v curl &>/dev/null; then
+        return 0
+    fi
+    echo "curl 未安装，尝试自动安装 curl..."
+
+    case "$OS" in
+        ubuntu|debian)
+            apt update -qq
+            DEBIAN_FRONTEND=noninteractive apt install -y curl
+            ;;
+        centos|rhel|fedora)
+            if command -v dnf &>/dev/null; then
+                dnf install -y curl
+            else
+                yum install -y curl
+            fi
+            ;;
+        arch)
+            pacman -Sy --noconfirm curl
+            ;;
+        opensuse*|suse)
+            zypper install -y curl
+            ;;
+        *)
+            echo "未知系统，无法自动安装 curl，请手动安装"
+            return 1
+            ;;
+    esac
+
+    if command -v curl &>/dev/null; then
+        echo "curl 安装成功"
+        return 0
+    else
+        echo "curl 安装失败，请手动安装"
+        return 1
+    fi
+}
+
+download_h5ai() {
+    local url="https://github.com/lrsjng/h5ai/releases/download/v0.30.0/h5ai-0.30.0.zip"
+    local output="h5ai.zip"
+
+    if command -v curl &>/dev/null; then
+        echo "使用 curl 下载 h5ai..."
+        if ! curl -fsSL --retry 3 -o "$output" "$url"; then
+            echo "⚠️ curl 下载失败，尝试用 wget 下载..."
+            if command -v wget &>/dev/null; then
+                if ! wget -q --tries=3 --timeout=15 -O "$output" "$url"; then
+                    echo "❌ h5ai 下载失败！"
+                    return 1
+                fi
+            else
+                echo "❌ wget 未安装，无法下载 h5ai！"
+                return 1
+            fi
+        fi
+    else
+        echo "curl 未安装，尝试安装..."
+        if install_curl_if_missing; then
+            download_h5ai  # 重新调用自己，安装完curl后再下载
+        else
+            echo "尝试用 wget 下载..."
+            if command -v wget &>/dev/null; then
+                if ! wget -q --tries=3 --timeout=15 -O "$output" "$url"; then
+                    echo "❌ h5ai 下载失败！"
+                    return 1
+                fi
+            else
+                echo "❌ wget 未安装，无法下载 h5ai！"
+                return 1
+            fi
+        fi
+    fi
+    echo "h5ai 下载成功"
+    return 0
+}
+
 main() {
     detect_os
     echo "检测到系统: $OS $VER"
@@ -228,8 +306,7 @@ main() {
     cd "$WEBROOT" || { echo "无法进入目录 $WEBROOT"; exit 1; }
 
     echo "正在下载 h5ai ..."
-    if ! wget -q --tries=3 --timeout=15 -O h5ai.zip https://release.larsjung.de/h5ai/h5ai-0.30.0.zip; then
-        echo "❌ h5ai 下载失败！"
+    if ! download_h5ai; then
         exit 1
     fi
 
@@ -240,7 +317,7 @@ main() {
         exit 1
     fi
 
-    # 支持更多用户，如 http, nginx 等
+    # 支持更多用户，如 www-data apache http nginx 等
     for user in www-data apache http nginx; do
         if id "$user" &>/dev/null; then
             chown -R "$user":"$user" "${WEBROOT}/_h5ai"
