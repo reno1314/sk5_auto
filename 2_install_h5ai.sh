@@ -1,124 +1,129 @@
 #!/bin/bash
+set -euo pipefail
 
-set -e
+# 脚本必须以 root 用户运行
+if [ "$EUID" -ne 0 ]; then
+    echo "❌ 请以 root 用户运行此脚本"
+    exit 1
+fi
 
-read -p "请输入要使用的端口号 (例如 12345): " PORT
-if [ -z "$PORT" ]; then
-    echo "❌ 端口号不能为空！"
+read -rp "请输入要使用的端口号 (例如 12345): " PORT
+if [[ ! "$PORT" =~ ^[0-9]+$ ]]; then
+    echo "❌ 端口号必须为数字！"
     exit 1
 fi
 
 WEBROOT="/var/www/html"
 
-# 系统检测函数
 detect_os() {
-    if [ -f /etc/os-release ]; then
+    if [[ -f /etc/os-release ]]; then
         . /etc/os-release
         OS=$ID
         VER=$VERSION_ID
+        OS_LIKE=$ID_LIKE
     else
         echo "无法识别操作系统！"
         exit 1
     fi
 }
 
-install_packages_ubuntu_debian() {
-    apt update
-    apt install -y apache2 php php-cli php-xml unzip curl ufw iptables iptables-persistent
+install_packages_debian_like() {
+    echo "更新包列表..."
+    apt update -qq
+    echo "安装必要包..."
+    DEBIAN_FRONTEND=noninteractive apt install -y apache2 php php-cli php-xml unzip curl ufw iptables iptables-persistent wget
 }
 
-install_packages_centos7() {
-    yum install -y epel-release
-    yum install -y httpd php php-cli php-xml unzip curl firewalld iptables-services
-}
-
-install_packages_centos8() {
-    dnf install -y epel-release
-    dnf install -y httpd php php-cli php-xml unzip curl firewalld iptables-services
-}
-
-setup_firewall_ubuntu_debian() {
-    # ufw 启用并放行端口
-    if command -v ufw >/dev/null 2>&1; then
-        ufw status | grep -qw "active" || ufw enable
-        ufw allow ${PORT}/tcp
-        ufw reload
-        echo "ufw 放行端口 ${PORT}"
-    fi
-}
-
-setup_firewall_centos() {
-    # firewalld 启用并放行端口
-    if systemctl is-active firewalld >/dev/null 2>&1; then
-        firewall-cmd --permanent --add-port=${PORT}/tcp
-        firewall-cmd --reload
-        echo "firewalld 放行端口 ${PORT}"
+install_packages_rhel_like() {
+    echo "安装必要包..."
+    if command -v dnf &>/dev/null; then
+        dnf install -y epel-release || true
+        dnf install -y httpd php php-cli php-xml unzip curl firewalld iptables-services wget
     else
-        # firewalld 未启动，尝试启动
-        systemctl start firewalld
-        firewall-cmd --permanent --add-port=${PORT}/tcp
-        firewall-cmd --reload
-        echo "firewalld 启动并放行端口 ${PORT}"
+        yum install -y epel-release || true
+        yum install -y httpd php php-cli php-xml unzip curl firewalld iptables-services wget
     fi
 }
 
-setup_iptables_persistent() {
-    if command -v iptables >/dev/null 2>&1; then
-        iptables -C INPUT -p tcp --dport ${PORT} -j ACCEPT >/dev/null 2>&1 || {
-            iptables -I INPUT -p tcp --dport ${PORT} -j ACCEPT
-            echo "添加 iptables 端口放行 ${PORT}"
-        }
+install_packages_arch() {
+    echo "安装必要包..."
+    pacman -Syu --noconfirm apache php php-apache unzip curl iptables wget
+}
 
-        if command -v netfilter-persistent >/dev/null 2>&1; then
-            netfilter-persistent save
-        elif command -v service >/dev/null 2>&1 && service iptables save >/dev/null 2>&1; then
-            service iptables save
-        else
-            echo "⚠️ 无法自动保存 iptables 规则，请手动保存"
-        fi
-    fi
+install_packages_opensuse() {
+    echo "安装必要包..."
+    zypper refresh
+    zypper install -y apache2 php7 php7-xml unzip curl SuSEfirewall2 iptables wget
+}
+
+install_dependencies() {
+    case "$OS" in
+        ubuntu|debian)
+            install_packages_debian_like
+            ;;
+        centos|rhel|fedora)
+            install_packages_rhel_like
+            ;;
+        arch)
+            install_packages_arch
+            ;;
+        opensuse*|suse)
+            install_packages_opensuse
+            ;;
+        *)
+            if [[ "$OS_LIKE" == *"debian"* ]]; then
+                install_packages_debian_like
+            elif [[ "$OS_LIKE" == *"rhel"* ]] || [[ "$OS_LIKE" == *"fedora"* ]]; then
+                install_packages_rhel_like
+            else
+                echo "未知系统，尝试使用 Debian/Ubuntu 方式安装依赖"
+                install_packages_debian_like
+            fi
+            ;;
+    esac
+}
+
+get_apache_ports_conf() {
+    case "$OS" in
+        ubuntu|debian) echo "/etc/apache2/ports.conf" ;;
+        centos|rhel|fedora|arch) echo "/etc/httpd/conf/httpd.conf" ;;
+        opensuse*|suse) echo "/etc/apache2/listen.conf" ;;
+        *) echo "/etc/apache2/ports.conf" ;;
+    esac
+}
+
+get_apache_vhost_conf() {
+    case "$OS" in
+        ubuntu|debian) echo "/etc/apache2/sites-available/h5ai.conf" ;;
+        centos|rhel|fedora|arch) echo "/etc/httpd/conf.d/h5ai.conf" ;;
+        opensuse*|suse) echo "/etc/apache2/vhosts.d/h5ai.conf" ;;
+        *) echo "/etc/apache2/sites-available/h5ai.conf" ;;
+    esac
 }
 
 configure_apache_listen() {
     local port=$1
-    local apache_ports_conf=""
-    case "$OS" in
-        ubuntu|debian)
-            apache_ports_conf="/etc/apache2/ports.conf"
-            ;;
-        centos)
-            apache_ports_conf="/etc/httpd/conf/httpd.conf"
-            ;;
-        *)
-            echo "未知系统，默认使用 /etc/apache2/ports.conf"
-            apache_ports_conf="/etc/apache2/ports.conf"
-            ;;
-    esac
+    local conf_file
+    conf_file=$(get_apache_ports_conf)
 
-    if ! grep -q "Listen ${port}" "$apache_ports_conf"; then
-        echo "Listen ${port}" >> "$apache_ports_conf"
-        echo "已添加 Listen ${port} 到 $apache_ports_conf"
+    if grep -qE "^\s*Listen\s+${port}$" "$conf_file"; then
+        echo "$conf_file 中已存在 Listen ${port}"
     else
-        echo "$apache_ports_conf 中已存在 Listen ${port}"
+        echo "Listen ${port}" >> "$conf_file"
+        echo "已添加 Listen ${port} 到 $conf_file"
     fi
 }
 
 configure_apache_vhost() {
     local port=$1
-    local apache_conf=""
-    case "$OS" in
-        ubuntu|debian)
-            apache_conf="/etc/apache2/sites-available/h5ai.conf"
-            ;;
-        centos)
-            apache_conf="/etc/httpd/conf.d/h5ai.conf"
-            ;;
-        *)
-            apache_conf="/etc/apache2/sites-available/h5ai.conf"
-            ;;
-    esac
+    local conf_file
+    conf_file=$(get_apache_vhost_conf)
 
-    cat <<EOF > "${apache_conf}"
+    if [ -f "${conf_file}" ]; then
+        cp "${conf_file}" "${conf_file}.bak.$(date +%F-%T)"
+    fi
+
+    cat <<EOF > "${conf_file}"
 <VirtualHost *:${port}>
     DocumentRoot ${WEBROOT}
     <Directory "${WEBROOT}">
@@ -129,7 +134,7 @@ configure_apache_vhost() {
 </VirtualHost>
 EOF
 
-    echo "已生成 Apache 虚拟主机配置文件: ${apache_conf}"
+    echo "已生成 Apache 虚拟主机配置文件: ${conf_file}"
 }
 
 enable_apache_site_and_modules() {
@@ -137,40 +142,71 @@ enable_apache_site_and_modules() {
         ubuntu|debian)
             a2enmod rewrite
             a2ensite h5ai.conf
-            a2dissite 000-default.conf
+            a2dissite 000-default.conf || true
             ;;
-        centos)
-            # centos默认启用，确认无默认站点冲突即可
+        centos|rhel|fedora|arch)
+            # 通常 rewrite 模块已启用，无需额外操作
+            ;;
+        opensuse*|suse)
+            a2enmod rewrite || true
             ;;
     esac
 }
 
 restart_apache() {
     case "$OS" in
-        ubuntu|debian)
-            systemctl restart apache2
-            ;;
-        centos)
-            systemctl restart httpd
-            ;;
-        *)
-            systemctl restart apache2
-            ;;
+        ubuntu|debian) systemctl restart apache2 ;;
+        centos|rhel|fedora|arch) systemctl restart httpd ;;
+        opensuse*|suse) systemctl restart apache2 ;;
+        *) systemctl restart apache2 ;;
     esac
 }
 
+setup_firewall() {
+    local port=$1
+
+    if command -v ufw &>/dev/null; then
+        if ! ufw status | grep -qw "active"; then
+            echo y | ufw enable
+        fi
+        ufw allow "${port}/tcp"
+        ufw reload
+        echo "ufw 放行端口 ${port}"
+    elif systemctl is-active firewalld &>/dev/null; then
+        if ! firewall-cmd --list-ports | grep -qw "${port}/tcp"; then
+            firewall-cmd --permanent --add-port=${port}/tcp
+            firewall-cmd --reload
+        fi
+        echo "firewalld 放行端口 ${port}"
+    elif command -v iptables &>/dev/null; then
+        if ! iptables -C INPUT -p tcp --dport "${port}" -j ACCEPT &>/dev/null; then
+            iptables -I INPUT -p tcp --dport "${port}" -j ACCEPT
+            echo "添加 iptables 端口放行 ${port}"
+        fi
+
+        # 尝试保存规则，兼容多种系统
+        if command -v netfilter-persistent &>/dev/null; then
+            netfilter-persistent save
+        elif command -v service &>/dev/null && service iptables save &>/dev/null; then
+            service iptables save
+        elif command -v iptables-save &>/dev/null; then
+            iptables-save > /etc/iptables/rules.v4 || echo "⚠️ 无法保存 iptables 规则到 /etc/iptables/rules.v4"
+        else
+            echo "⚠️ 无法自动保存 iptables 规则，请手动保存"
+        fi
+    else
+        echo "⚠️ 无防火墙管理工具，无法自动放行端口，请手动处理"
+    fi
+}
+
 backup_and_prepare_webroot() {
-    # 备份 index.html
     if [ -f "${WEBROOT}/index.html" ]; then
-        mv "${WEBROOT}/index.html" "${WEBROOT}/index.html.bak"
-        echo "已备份 index.html 为 index.html.bak"
+        mv -v "${WEBROOT}/index.html" "${WEBROOT}/index.html.bak"
     fi
 
-    # 复制 index.php
     if [ ! -f "${WEBROOT}/index.php" ]; then
         if [ -f "${WEBROOT}/_h5ai/public/index.php" ]; then
-            cp "${WEBROOT}/_h5ai/public/index.php" "${WEBROOT}/index.php"
-            echo "已复制 _h5ai/public/index.php 到根目录"
+            cp -v "${WEBROOT}/_h5ai/public/index.php" "${WEBROOT}/index.php"
         else
             echo "⚠️ 未找到 _h5ai/public/index.php，请检查 h5ai 安装"
             exit 1
@@ -184,64 +220,45 @@ main() {
     detect_os
     echo "检测到系统: $OS $VER"
 
-    # 安装依赖
-    case "$OS" in
-        ubuntu|debian)
-            install_packages_ubuntu_debian
-            ;;
-        centos)
-            if [[ "$VER" == 7* ]]; then
-                install_packages_centos7
-            else
-                install_packages_centos8
-            fi
-            ;;
-        *)
-            echo "当前系统未明确支持，尝试用 Debian/Ubuntu 方式安装..."
-            install_packages_ubuntu_debian
-            ;;
-    esac
+    install_dependencies
 
-    # 配置 apache 监听端口
-    configure_apache_listen $PORT
+    configure_apache_listen "$PORT"
 
-    # 下载并安装 h5ai
-    mkdir -p $WEBROOT
-    cd $WEBROOT
-    wget -O h5ai.zip https://release.larsjung.de/h5ai/h5ai-0.30.0.zip
-    unzip -o h5ai.zip && rm h5ai.zip
-    chown -R www-data:www-data ${WEBROOT}/_h5ai
+    mkdir -p "$WEBROOT"
+    cd "$WEBROOT" || { echo "无法进入目录 $WEBROOT"; exit 1; }
 
-    # 配置 apache 虚拟主机
-    configure_apache_vhost $PORT
+    echo "正在下载 h5ai ..."
+    if ! wget -q --tries=3 --timeout=15 -O h5ai.zip https://release.larsjung.de/h5ai/h5ai-0.30.0.zip; then
+        echo "❌ h5ai 下载失败！"
+        exit 1
+    fi
 
-    # 启用模块和站点
+    unzip -o h5ai.zip && rm -f h5ai.zip
+
+    if [ ! -d "${WEBROOT}/_h5ai" ]; then
+        echo "⚠️ 解压后未找到 _h5ai 目录，请检查下载包结构"
+        exit 1
+    fi
+
+    # 支持更多用户，如 http, nginx 等
+    for user in www-data apache http nginx; do
+        if id "$user" &>/dev/null; then
+            chown -R "$user":"$user" "${WEBROOT}/_h5ai"
+            break
+        fi
+    done
+
+    configure_apache_vhost "$PORT"
+
     enable_apache_site_and_modules
 
-    # 备份并准备网站根目录
     backup_and_prepare_webroot
 
-    # 重启 apache
     restart_apache
 
-    # 防火墙放行端口
-    case "$OS" in
-        ubuntu|debian)
-            setup_firewall_ubuntu_debian
-            ;;
-        centos)
-            setup_firewall_centos
-            ;;
-        *)
-            echo "未知系统，尝试通用防火墙配置"
-            setup_firewall_ubuntu_debian
-            ;;
-    esac
+    setup_firewall "$PORT"
 
-    # iptables 持久化放行端口
-    setup_iptables_persistent
-
-    public_ip=$(curl -s ifconfig.me || curl -s ipinfo.io/ip)
+    public_ip=$(curl -s --max-time 5 ifconfig.me || curl -s --max-time 5 ipinfo.io/ip || echo "无法获取公网 IP")
     echo "✅ 安装完成，请访问：http://${public_ip}:${PORT}/"
 }
 
