@@ -19,9 +19,9 @@ WEBROOT="/var/www/html"
 detect_os() {
     if [[ -f /etc/os-release ]]; then
         . /etc/os-release
-        OS=$ID
-        VER=$VERSION_ID
-        OS_LIKE=$ID_LIKE
+        export OS=$ID
+        export VER=$VERSION_ID
+        export OS_LIKE=$ID_LIKE
     else
         echo "❌ 无法识别操作系统！"
         exit 1
@@ -148,7 +148,7 @@ EOF
 setup_firewall() {
     local port=$1
     echo "配置防火墙放通端口 ${port}"
-    if is_installed ufw; then
+    if is_installed ufw && ufw status | grep -q "Status: active"; then
         ufw allow "${port}/tcp"
         ufw reload
     elif systemctl is-active firewalld &>/dev/null; then
@@ -218,15 +218,45 @@ get_public_ip() {
 }
 
 check_time_sync() {
-    # 简单检测系统时间，防止 Apache 报时钟问题
     local local_time=$(date +%s)
     local ntp_time=$(curl -s --head http://google.com | grep ^Date: | cut -d' ' -f3-)
     if [[ -n "$ntp_time" ]]; then
         local ntp_epoch=$(date -d "$ntp_time" +%s)
         local diff=$((local_time - ntp_epoch))
-        diff=${diff#-}  # 绝对值
+        diff=${diff#-}
         if (( diff > 3600 )); then
             echo "⚠️ 本机时间与网络时间相差超过 1 小时，请同步系统时间。"
+            echo "可使用命令：timedatectl set-ntp true 来自动同步时间"
+        fi
+    fi
+}
+
+enable_apache_autostart() {
+    local apache_service
+    apache_service=$(get_apache_service)
+
+    echo "设置 Apache 服务 $apache_service 开机自启动..."
+    systemctl enable "$apache_service"
+}
+
+check_apache_status() {
+    local apache_service
+    apache_service=$(get_apache_service)
+
+    echo "检测 Apache 服务 $apache_service 状态..."
+
+    if systemctl is-active --quiet "$apache_service"; then
+        echo "✅ Apache 服务正在运行"
+    else
+        echo "❌ Apache 服务未运行，尝试启动..."
+        systemctl start "$apache_service"
+        sleep 2
+        if systemctl is-active --quiet "$apache_service"; then
+            echo "✅ Apache 服务启动成功"
+        else
+            echo "❌ Apache 服务启动失败，请检查日志"
+            journalctl -u "$apache_service" --no-pager -n 20
+            exit 1
         fi
     fi
 }
@@ -237,6 +267,8 @@ main() {
     configure_apache "$PORT"
     prepare_webroot
     setup_firewall "$PORT"
+    enable_apache_autostart
+    check_apache_status
     check_time_sync
 
     local public_ip
