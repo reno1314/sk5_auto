@@ -67,15 +67,15 @@ add_apache_port() {
 create_vhost_conf() {
     VHOST_CONF="$APACHE_CONF_DIR/h5ai.conf"
     cat <<EOF > "$VHOST_CONF"
-<VirtualHost *:$PORT>
-    DocumentRoot "$WEB_DIR"
-    <Directory "$WEB_DIR">
+<VirtualHost *:55555>
+    DocumentRoot /var/www/html
+    <Directory "/var/www/html">
         Options Indexes FollowSymLinks
         AllowOverride All
         Require all granted
     </Directory>
-    ErrorLog logs/h5ai_error.log
-    CustomLog logs/h5ai_access.log combined
+    ErrorLog ${APACHE_LOG_DIR}/h5ai_error.log
+    CustomLog ${APACHE_LOG_DIR}/h5ai_access.log combined
 </VirtualHost>
 EOF
 }
@@ -83,7 +83,7 @@ EOF
 # 下载和部署 h5ai
 setup_h5ai() {
     cd "$WEB_DIR" || exit
-    if ! wget -O h5ai.zip https://github.com/lrsjng/h5ai/releases/download/v0.30.0/h5ai-0.30.0.zip; then
+    if ! wget -O h5ai.zip https://release.larsjung.de/h5ai/h5ai-0.30.0.zip; then
         echo "❌ h5ai 下载失败，请手动下载 h5ai.zip 到 $WEB_DIR 并解压。"
         exit 1
     fi
@@ -185,3 +185,5 @@ elif [[ "$OS" == "centos" || "$OS" == "rocky" || "$OS" == "almalinux" ]]; then
 fi
 
 echo "✅ 修复完成，请访问：http://$IP:$PORT/"
+
+rm -f /var/www/html/index.html
