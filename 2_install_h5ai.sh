@@ -83,7 +83,10 @@ EOF
 # 下载和部署 h5ai
 setup_h5ai() {
     cd "$WEB_DIR" || exit
-    wget -O h5ai.zip https://release.larsjung.de/h5ai/h5ai-0.30.0.zip
+    if ! wget -O h5ai.zip https://release.larsjung.de/h5ai/h5ai-0.30.0.zip; then
+        echo "❌ h5ai 下载失败，请手动下载 h5ai.zip 到 $WEB_DIR 并解压。"
+        exit 1
+    fi
     unzip -q h5ai.zip && rm -f h5ai.zip
     chown -R $(whoami):$(whoami) "$WEB_DIR/_h5ai"
     chown -R www-data:www-data "$WEB_DIR/_h5ai" 2>/dev/null || chown -R apache:apache "$WEB_DIR/_h5ai" 2>/dev/null
@@ -119,8 +122,8 @@ if [[ "$OS" == "ubuntu" || "$OS" == "debian" ]]; then
     CONF_PATH="$APACHE_CONF_DIR/h5ai.conf"
     if [ -f "$CONF_PATH" ]; then
         echo "📁 替换错误日志路径..."
-        sed -i 's|ErrorLog logs/h5ai_error.log|ErrorLog \\${APACHE_LOG_DIR}/h5ai_error.log|g' "$CONF_PATH"
-        sed -i 's|CustomLog logs/h5ai_access.log combined|CustomLog \\${APACHE_LOG_DIR}/h5ai_access.log combined|g' "$CONF_PATH"
+        sed -i 's|ErrorLog logs/h5ai_error.log|ErrorLog ${APACHE_LOG_DIR}/h5ai_error.log|g' "$CONF_PATH"
+        sed -i 's|CustomLog logs/h5ai_access.log combined|CustomLog ${APACHE_LOG_DIR}/h5ai_access.log combined|g' "$CONF_PATH"
     else
         echo "❌ 找不到 $CONF_PATH，请确认 h5ai 是否已配置"
     fi
