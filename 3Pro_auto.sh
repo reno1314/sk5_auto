@@ -62,7 +62,7 @@ if [[ $IP =~ ^10\.0\.0\..* ]]; then
         echo "exit" >> "$SCRIPT_PATH"
         chmod +x "$SCRIPT_PATH"
     fi
-    (crontab -l 2>/dev/null | grep -v -F -x "@reboot sleep 35 && $SCRIPT_PATH"; echo "@reboot sleep 35 && $SCRIPT_PATH") | crontab -
+    (crontab -l 2>/dev/null | grep -v -F -x "@reboot sleep 20 && $SCRIPT_PATH"; echo "@reboot sleep 20 && $SCRIPT_PATH") | crontab -
 fi
 elif [ "$SYSTEM_RECOGNIZE" == "centos" ]; then
     yum install -y cronie curl psmisc sudo gcc make
@@ -83,7 +83,7 @@ if [[ $IP =~ ^10\.0\.0\..* ]]; then
         echo "exit" >> "$SCRIPT_PATH"
         chmod +x "$SCRIPT_PATH"
     fi
-    (crontab -l 2>/dev/null | grep -v -F -x "@reboot sleep 35 && $SCRIPT_PATH"; echo "@reboot sleep 35 && $SCRIPT_PATH") | crontab -
+    (crontab -l 2>/dev/null | grep -v -F -x "@reboot sleep 20 && $SCRIPT_PATH"; echo "@reboot sleep 20 && $SCRIPT_PATH") | crontab -
 fi
 else
     echo "Error: Unsupported system."
