@@ -163,3 +163,10 @@ setup_h5ai
 enable_apache_conf
 enable_and_show
 clean_up
+
+# 清理默认欢迎页面
+if [[ "$OS" == "centos" || "$OS" == "rocky" || "$OS" == "almalinux" ]]; then
+    sudo mv /etc/httpd/conf.d/welcome.conf /etc/httpd/conf.d/welcome.conf.bak
+fi
+
+sudo systemctl restart httpd
