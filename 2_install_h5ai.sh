@@ -1,77 +1,112 @@
 #!/bin/bash
 
-# ========= h5ai 自动安装脚本 =========
-
-# 端口设置交互，范围30999~60999
+# 端口交互（范围限制）
 while true; do
     read -p "请输入要使用的端口号（30999~60999）: " PORT
-    if [[ $PORT =~ ^[0-9]+$ ]] && [ $PORT -ge 30999 ] && [ $PORT -le 60999 ]; then
-        if lsof -i TCP:$PORT >/dev/null; then
-            echo "端口 $PORT 已被占用，请选择其他端口。"
-            continue
+    if [[ $PORT =~ ^[0-9]+$ ]] && [ "$PORT" -ge 30999 ] && [ "$PORT" -le 60999 ]; then
+        if ss -tln | grep -q ":$PORT"; then
+            echo "端口 $PORT 已被占用，请更换其他端口。"
+        else
+            break
         fi
-        break
     else
-        echo "端口号无效，请输入30999~60999之间的数字。"
+        echo "请输入有效的端口号（30999~60999）"
     fi
 done
 
-# 更新系统并安装所需软件
-echo "[INFO] 正在更新系统并安装 Apache2 和 PHP..."
-apt update && apt install -y apache2 php php-cli php-xml unzip
-
-# 添加 Apache 监听端口（若未监听则添加）
-if ! grep -q "Listen $PORT" /etc/apache2/ports.conf; then
-    echo "Listen $PORT" >> /etc/apache2/ports.conf
+# 系统识别
+if [ -e /etc/os-release ]; then
+    . /etc/os-release
+    OS=$ID
+    VER=$VERSION_ID
+else
+    echo "无法识别操作系统，终止安装。"
+    exit 1
 fi
 
-# 禁用默认站点（避免冲突）
-a2dissite 000-default.conf
+echo "[INFO] 检测到系统: $OS $VER"
 
-# 进入 Web 目录
-cd /var/www/html || exit
+# 安装函数
+install_packages() {
+    case "$OS" in
+        ubuntu|debian)
+            apt update
+            apt install -y apache2 php php-cli php-xml unzip wget
+            WEB_DIR="/var/www/html"
+            APACHE_CONF_DIR="/etc/apache2/sites-available"
+            APACHE_PORTS_CONF="/etc/apache2/ports.conf"
+            SYSTEMCTL="systemctl"
+            ;;
+        centos|rocky|almalinux)
+            if [ "$VER" -ge 8 ]; then
+                dnf install -y httpd php php-cli php-xml unzip wget
+            else
+                yum install -y epel-release
+                yum install -y httpd php php-cli php-xml unzip wget
+            fi
+            WEB_DIR="/var/www/html"
+            APACHE_CONF_DIR="/etc/httpd/conf.d"
+            APACHE_PORTS_CONF="/etc/httpd/conf/httpd.conf"
+            SYSTEMCTL="systemctl"
+            ;;
+        *)
+            echo "[ERROR] 暂不支持的系统: $OS"
+            exit 1
+            ;;
+    esac
+}
 
-# 下载 h5ai 最新版本
-echo "[INFO] 正在下载 h5ai..."
-wget -O h5ai.zip https://release.larsjung.de/h5ai/h5ai-0.30.0.zip
+# 添加 Apache 监听端口
+add_apache_port() {
+    if ! grep -q "Listen $PORT" "$APACHE_PORTS_CONF"; then
+        echo "Listen $PORT" >> "$APACHE_PORTS_CONF"
+    fi
+}
 
-# 解压 h5ai 并清理压缩包
-echo "[INFO] 正在解压 h5ai..."
-unzip -q h5ai.zip && rm -f h5ai.zip
-
-# 设置权限
-echo "[INFO] 正在设置文件权限..."
-chown -R www-data:www-data /var/www/html/_h5ai
-
-# 创建 Apache 虚拟主机配置
-echo "[INFO] 正在生成 Apache 配置..."
-cat <<EOF > /etc/apache2/sites-available/h5ai.conf
+# 创建虚拟主机配置
+create_vhost_conf() {
+    VHOST_CONF="$APACHE_CONF_DIR/h5ai.conf"
+    cat <<EOF > "$VHOST_CONF"
 <VirtualHost *:$PORT>
-    DocumentRoot /var/www/html
-    <Directory "/var/www/html">
+    DocumentRoot "$WEB_DIR"
+    <Directory "$WEB_DIR">
         Options Indexes FollowSymLinks
         AllowOverride All
         Require all granted
     </Directory>
-    ErrorLog \${APACHE_LOG_DIR}/error.log
-    CustomLog \${APACHE_LOG_DIR}/access.log combined
+    ErrorLog logs/h5ai_error.log
+    CustomLog logs/h5ai_access.log combined
 </VirtualHost>
 EOF
+}
 
-# 启用模块和站点
-echo "[INFO] 启用 Apache 模块与站点..."
-a2enmod rewrite
-a2ensite h5ai.conf
+# 下载和部署 h5ai
+setup_h5ai() {
+    cd "$WEB_DIR" || exit
+    wget -O h5ai.zip https://release.larsjung.de/h5ai/h5ai-0.30.0.zip
+    unzip -q h5ai.zip && rm -f h5ai.zip
+    chown -R $(whoami):$(whoami) "$WEB_DIR/_h5ai"
+    chown -R www-data:www-data "$WEB_DIR/_h5ai" 2>/dev/null || chown -R apache:apache "$WEB_DIR/_h5ai" 2>/dev/null
+}
 
-# 重启 Apache 服务
-echo "[INFO] 正在重启 Apache 服务..."
-systemctl restart apache2
+# 启动服务并输出结果
+enable_and_show() {
+    case "$OS" in
+        ubuntu|debian)
+            a2enmod rewrite
+            a2ensite h5ai.conf
+            ;;
+    esac
+    $SYSTEMCTL restart apache2 2>/dev/null || $SYSTEMCTL restart httpd
+    IP=$(hostname -I | awk '{print $1}')
+    echo
+    echo "✅ 安装完成，请访问： http://$IP:$PORT/"
+    echo
+}
 
-# 获取本机 IP 地址
-IP=$(hostname -I | awk '{print $1}')
-
-# 显示结果
-echo
-echo "✅ h5ai 安装完成！"
-echo "📂 请在浏览器中访问：http://$IP:$PORT/"
-echo
+# 开始安装流程
+install_packages
+add_apache_port
+create_vhost_conf
+setup_h5ai
+enable_and_show
