@@ -82,25 +82,44 @@ EOF
 
 # 下载和部署 h5ai
 setup_h5ai() {
-    cd "$WEB_DIR" || exit
+    H5AI_CORE="/var/www/h5ai_core"
+    mkdir -p "$H5AI_CORE"
+
+    cd "$H5AI_CORE"
     if ! wget -O h5ai.zip https://github.com/lrsjng/h5ai/releases/download/v0.30.0/h5ai-0.30.0.zip; then
-        echo "❌ h5ai 下载失败，请手动下载 h5ai.zip 到 $WEB_DIR 并解压。"
+        echo "❌ h5ai 下载失败，请手动下载 h5ai.zip 到 $H5AI_CORE 并解压。"
         exit 1
     fi
     unzip -q h5ai.zip && rm -f h5ai.zip
-    chown -R $(whoami):$(whoami) "$WEB_DIR/_h5ai"
-    chown -R www-data:www-data "$WEB_DIR/_h5ai" 2>/dev/null || chown -R apache:apache "$WEB_DIR/_h5ai" 2>/dev/null
+    chown -R www-data:www-data "$H5AI_CORE/_h5ai"
+    chown -R www-data:www-data "$H5AI_CORE/_h5ai" 2>/dev/null || chown -R apache:apache "$H5AI_CORE/_h5ai" 2>/dev/null
+
+    # 配置 Apache 虚拟主机
+    cat <<EOF > /etc/apache2/sites-available/h5ai.conf
+    <VirtualHost *:80>
+        DocumentRoot /var/www/html
+        <Directory "/var/www/html">
+            Options Indexes FollowSymLinks
+            AllowOverride All
+            Require all granted
+        </Directory>
+        Alias /_h5ai $H5AI_CORE/_h5ai
+        <Directory "$H5AI_CORE/_h5ai">
+            Options Indexes FollowSymLinks
+            AllowOverride All
+            Require all granted
+        </Directory>
+    </VirtualHost>
+    EOF
+
+    # 启用配置
+    a2enmod rewrite
+    a2ensite h5ai.conf
+    $SYSTEMCTL restart apache2 2>/dev/null || $SYSTEMCTL restart httpd
 }
 
 # 启动服务并输出结果
 enable_and_show() {
-    case "$OS" in
-        ubuntu|debian)
-            a2enmod rewrite
-            a2ensite h5ai.conf
-            ;;
-    esac
-    $SYSTEMCTL restart apache2 2>/dev/null || $SYSTEMCTL restart httpd
     IP=$(hostname -I | awk '{print $1}')
     echo
     echo "✅ 安装完成，请访问： http://$IP:$PORT/"
@@ -187,3 +206,6 @@ fi
 echo "✅ 修复完成，请访问：http://$IP:$PORT/"
 
 rm -f /var/www/html/index.html
+
+# 删除旧的 h5ai 目录（如有）
+rm -rf /var/www/html/_h5ai
