@@ -110,3 +110,75 @@ add_apache_port
 create_vhost_conf
 setup_h5ai
 enable_and_show
+
+# ====== 修复 Apache h5ai 配置（日志路径、ServerName、端口监听、配置检测）======
+echo "\n🔧 正在修复 Apache h5ai 配置..."
+
+# 日志路径修正（Debian/Ubuntu 和 RedHat/CentOS 系统）
+if [[ "$OS" == "ubuntu" || "$OS" == "debian" ]]; then
+    CONF_PATH="$APACHE_CONF_DIR/h5ai.conf"
+    if [ -f "$CONF_PATH" ]; then
+        echo "📁 替换错误日志路径..."
+        sed -i 's|ErrorLog logs/h5ai_error.log|ErrorLog \\${APACHE_LOG_DIR}/h5ai_error.log|g' "$CONF_PATH"
+        sed -i 's|CustomLog logs/h5ai_access.log combined|CustomLog \\${APACHE_LOG_DIR}/h5ai_access.log combined|g' "$CONF_PATH"
+    else
+        echo "❌ 找不到 $CONF_PATH，请确认 h5ai 是否已配置"
+    fi
+    # 添加 ServerName，防止警告
+    if ! grep -q "^ServerName" /etc/apache2/apache2.conf; then
+        echo "🌐 添加 ServerName localhost 到 apache2.conf"
+        echo "ServerName localhost" >> /etc/apache2/apache2.conf
+    fi
+    # 确保 Apache 监听 $PORT 端口
+    PORT_CONF="$APACHE_PORTS_CONF"
+    if ! grep -q "Listen $PORT" "$PORT_CONF"; then
+        echo "📡 配置 Apache 监听 $PORT 端口..."
+        echo "Listen $PORT" >> "$PORT_CONF"
+    fi
+    # 配置测试
+    echo "🔍 检查配置语法..."
+    apachectl configtest
+    # 重启 Apache
+    echo "🚀 重启 Apache 服务..."
+    systemctl restart apache2
+    # 显示 Apache 状态
+    echo "📈 Apache 当前状态："
+    systemctl status apache2 --no-pager
+    # 显示监听端口确认
+    echo "🔎 当前监听端口："
+    ss -tulnp | grep apache2 || ss -tulnp | grep :$PORT
+elif [[ "$OS" == "centos" || "$OS" == "rocky" || "$OS" == "almalinux" ]]; then
+    CONF_PATH="$APACHE_CONF_DIR/h5ai.conf"
+    if [ -f "$CONF_PATH" ]; then
+        echo "📁 替换错误日志路径..."
+        sed -i 's|ErrorLog logs/h5ai_error.log|ErrorLog /var/log/httpd/h5ai_error.log|g' "$CONF_PATH"
+        sed -i 's|CustomLog logs/h5ai_access.log combined|CustomLog /var/log/httpd/h5ai_access.log combined|g' "$CONF_PATH"
+    else
+        echo "❌ 找不到 $CONF_PATH，请确认 h5ai 是否已配置"
+    fi
+    # 添加 ServerName，防止警告
+    if ! grep -q "^ServerName" /etc/httpd/conf/httpd.conf; then
+        echo "🌐 添加 ServerName localhost 到 httpd.conf"
+        echo "ServerName localhost" >> /etc/httpd/conf/httpd.conf
+    fi
+    # 确保 Apache 监听 $PORT 端口
+    PORT_CONF="$APACHE_PORTS_CONF"
+    if ! grep -q "Listen $PORT" "$PORT_CONF"; then
+        echo "📡 配置 Apache 监听 $PORT 端口..."
+        echo "Listen $PORT" >> "$PORT_CONF"
+    fi
+    # 配置测试
+    echo "🔍 检查配置语法..."
+    apachectl configtest
+    # 重启 Apache
+    echo "🚀 重启 Apache 服务..."
+    systemctl restart httpd
+    # 显示 Apache 状态
+    echo "📈 Apache 当前状态："
+    systemctl status httpd --no-pager
+    # 显示监听端口确认
+    echo "🔎 当前监听端口："
+    ss -tulnp | grep httpd || ss -tulnp | grep :$PORT
+fi
+
+echo "✅ 修复完成，请访问：http://$IP:$PORT/"
