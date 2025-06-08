@@ -7,7 +7,7 @@ apt update && apt install -y apache2 php php-cli php-xml unzip
 cd /var/www/html
 
 # 下载 h5ai
-wget -O h5ai.zip https://release.larsjung.de/h5ai/h5ai-0.30.0.zip
+wget -O h5ai.zip https://github.com/lrsjng/h5ai/releases/download/v0.30.0/h5ai-0.30.0.zip
 
 # 解压 h5ai
 unzip h5ai.zip && rm h5ai.zip
