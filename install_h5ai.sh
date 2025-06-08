@@ -58,10 +58,8 @@ install_packages() {
 
 # 添加 Apache 监听端口
 add_apache_port() {
-    # 注释默认 Listen 80（CentOS/Rocky/AlmaLinux）
-    if [[ "$OS" == "centos" || "$OS" == "rocky" || "$OS" == "almalinux" ]]; then
-        sed -i 's/^Listen 80/#Listen 80/' "$APACHE_PORTS_CONF"
-    fi
+    # 注释默认 Listen 80（所有系统）
+    sed -i 's/^Listen 80/#Listen 80/' "$APACHE_PORTS_CONF"
 
     # 添加新的端口监听
     if ! grep -q "Listen $PORT" "$APACHE_PORTS_CONF"; then
@@ -112,6 +110,7 @@ enable_apache_conf() {
     if [[ "$OS" == "ubuntu" || "$OS" == "debian" ]]; then
         a2enmod rewrite
         a2ensite h5ai.conf
+        a2dissite 000-default.conf   # 禁用默认站点，防止80端口访问
     fi
 }
 
