@@ -58,6 +58,12 @@ install_packages() {
 
 # 添加 Apache 监听端口
 add_apache_port() {
+    # 注释默认 Listen 80（CentOS/Rocky/AlmaLinux）
+    if [[ "$OS" == "centos" || "$OS" == "rocky" || "$OS" == "almalinux" ]]; then
+        sed -i 's/^Listen 80/#Listen 80/' "$APACHE_PORTS_CONF"
+    fi
+
+    # 添加新的端口监听
     if ! grep -q "Listen $PORT" "$APACHE_PORTS_CONF"; then
         echo "Listen $PORT" >> "$APACHE_PORTS_CONF"
     fi
