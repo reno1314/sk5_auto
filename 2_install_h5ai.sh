@@ -83,7 +83,7 @@ EOF
 # 下载和部署 h5ai
 setup_h5ai() {
     cd "$WEB_DIR" || exit
-    if ! wget -O h5ai.zip https://release.larsjung.de/h5ai/h5ai-0.30.0.zip; then
+    if ! wget -O h5ai.zip https://github.com/lrsjng/h5ai/releases/download/v0.30.0/h5ai-0.30.0.zip; then
         echo "❌ h5ai 下载失败，请手动下载 h5ai.zip 到 $WEB_DIR 并解压。"
         exit 1
     fi
