@@ -35,7 +35,7 @@ install_packages() {
             WEB_DIR="/var/www/html"
             APACHE_CONF_DIR="/etc/apache2/sites-available"
             APACHE_PORTS_CONF="/etc/apache2/ports.conf"
-            SYSTEMCTL="systemctl"
+            APACHE_LOG_DIR="/var/log/apache2"
             ;;
         centos|rocky|almalinux)
             if [ "$VER" -ge 8 ]; then
@@ -47,7 +47,7 @@ install_packages() {
             WEB_DIR="/var/www/html"
             APACHE_CONF_DIR="/etc/httpd/conf.d"
             APACHE_PORTS_CONF="/etc/httpd/conf/httpd.conf"
-            SYSTEMCTL="systemctl"
+            APACHE_LOG_DIR="/var/log/httpd"
             ;;
         *)
             echo "[ERROR] 暂不支持的系统: $OS"
@@ -67,9 +67,15 @@ add_apache_port() {
 create_vhost_conf() {
     VHOST_CONF="$APACHE_CONF_DIR/h5ai.conf"
     cat <<EOF > "$VHOST_CONF"
-<VirtualHost *:55555>
-    DocumentRoot /var/www/html
-    <Directory "/var/www/html">
+<VirtualHost *:$PORT>
+    DocumentRoot $WEB_DIR
+    <Directory "$WEB_DIR">
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+    Alias /_h5ai /var/www/h5ai_core/_h5ai
+    <Directory "/var/www/h5ai_core/_h5ai">
         Options Indexes FollowSymLinks
         AllowOverride All
         Require all granted
@@ -84,128 +90,70 @@ EOF
 setup_h5ai() {
     H5AI_CORE="/var/www/h5ai_core"
     mkdir -p "$H5AI_CORE"
-
     cd "$H5AI_CORE"
+
     if ! wget -O h5ai.zip https://github.com/lrsjng/h5ai/releases/download/v0.30.0/h5ai-0.30.0.zip; then
         echo "❌ h5ai 下载失败，请手动下载 h5ai.zip 到 $H5AI_CORE 并解压。"
         exit 1
     fi
+
     unzip -q h5ai.zip && rm -f h5ai.zip
-    chown -R www-data:www-data "$H5AI_CORE/_h5ai"
     chown -R www-data:www-data "$H5AI_CORE/_h5ai" 2>/dev/null || chown -R apache:apache "$H5AI_CORE/_h5ai" 2>/dev/null
-
-    # 配置 Apache 虚拟主机
-    cat <<EOF > /etc/apache2/sites-available/h5ai.conf
-    <VirtualHost *:80>
-        DocumentRoot /var/www/html
-        <Directory "/var/www/html">
-            Options Indexes FollowSymLinks
-            AllowOverride All
-            Require all granted
-        </Directory>
-        Alias /_h5ai $H5AI_CORE/_h5ai
-        <Directory "$H5AI_CORE/_h5ai">
-            Options Indexes FollowSymLinks
-            AllowOverride All
-            Require all granted
-        </Directory>
-    </VirtualHost>
-    EOF
-
-    # 启用配置
-    a2enmod rewrite
-    a2ensite h5ai.conf
-    $SYSTEMCTL restart apache2 2>/dev/null || $SYSTEMCTL restart httpd
 }
 
-# 启动服务并输出结果
+# 启用 Apache 配置
+enable_apache_conf() {
+    if [[ "$OS" == "ubuntu" || "$OS" == "debian" ]]; then
+        a2enmod rewrite
+        a2ensite h5ai.conf
+    fi
+}
+
+# 启动服务并输出信息
 enable_and_show() {
+    if command -v apache2 > /dev/null; then
+        APACHE_SERVICE="apache2"
+        CONFIG_FILE="/etc/apache2/apache2.conf"
+    else
+        APACHE_SERVICE="httpd"
+        CONFIG_FILE="/etc/httpd/conf/httpd.conf"
+    fi
+
+    # 添加 ServerName
+    if ! grep -q "^ServerName" "$CONFIG_FILE"; then
+        echo "🌐 添加 ServerName localhost 到 $CONFIG_FILE"
+        echo "ServerName localhost" >> "$CONFIG_FILE"
+    fi
+
+    echo "🔍 检查配置语法..."
+    apachectl configtest
+
+    echo "🚀 重启 Apache 服务..."
+    systemctl restart "$APACHE_SERVICE"
+
+    echo "📈 Apache 当前状态："
+    systemctl status "$APACHE_SERVICE" --no-pager
+
+    echo "🔎 当前监听端口："
+    ss -tulnp | grep "$APACHE_SERVICE" || ss -tulnp | grep ":$PORT"
+
     IP=$(hostname -I | awk '{print $1}')
     echo
     echo "✅ 安装完成，请访问： http://$IP:$PORT/"
     echo
 }
 
-# 开始安装流程
+# 清理默认文件
+clean_up() {
+    rm -f /var/www/html/index.html
+    rm -rf /var/www/html/_h5ai
+}
+
+# 执行流程
 install_packages
 add_apache_port
 create_vhost_conf
 setup_h5ai
+enable_apache_conf
 enable_and_show
-
-# ====== 修复 Apache h5ai 配置（日志路径、ServerName、端口监听、配置检测）======
-echo "\n🔧 正在修复 Apache h5ai 配置..."
-
-# 日志路径修正（Debian/Ubuntu 和 RedHat/CentOS 系统）
-if [[ "$OS" == "ubuntu" || "$OS" == "debian" ]]; then
-    CONF_PATH="$APACHE_CONF_DIR/h5ai.conf"
-    if [ -f "$CONF_PATH" ]; then
-        echo "📁 替换错误日志路径..."
-        sed -i 's|ErrorLog logs/h5ai_error.log|ErrorLog ${APACHE_LOG_DIR}/h5ai_error.log|g' "$CONF_PATH"
-        sed -i 's|CustomLog logs/h5ai_access.log combined|CustomLog ${APACHE_LOG_DIR}/h5ai_access.log combined|g' "$CONF_PATH"
-    else
-        echo "❌ 找不到 $CONF_PATH，请确认 h5ai 是否已配置"
-    fi
-    # 添加 ServerName，防止警告
-    if ! grep -q "^ServerName" /etc/apache2/apache2.conf; then
-        echo "🌐 添加 ServerName localhost 到 apache2.conf"
-        echo "ServerName localhost" >> /etc/apache2/apache2.conf
-    fi
-    # 确保 Apache 监听 $PORT 端口
-    PORT_CONF="$APACHE_PORTS_CONF"
-    if ! grep -q "Listen $PORT" "$PORT_CONF"; then
-        echo "📡 配置 Apache 监听 $PORT 端口..."
-        echo "Listen $PORT" >> "$PORT_CONF"
-    fi
-    # 配置测试
-    echo "🔍 检查配置语法..."
-    apachectl configtest
-    # 重启 Apache
-    echo "🚀 重启 Apache 服务..."
-    systemctl restart apache2
-    # 显示 Apache 状态
-    echo "📈 Apache 当前状态："
-    systemctl status apache2 --no-pager
-    # 显示监听端口确认
-    echo "🔎 当前监听端口："
-    ss -tulnp | grep apache2 || ss -tulnp | grep :$PORT
-elif [[ "$OS" == "centos" || "$OS" == "rocky" || "$OS" == "almalinux" ]]; then
-    CONF_PATH="$APACHE_CONF_DIR/h5ai.conf"
-    if [ -f "$CONF_PATH" ]; then
-        echo "📁 替换错误日志路径..."
-        sed -i 's|ErrorLog logs/h5ai_error.log|ErrorLog /var/log/httpd/h5ai_error.log|g' "$CONF_PATH"
-        sed -i 's|CustomLog logs/h5ai_access.log combined|CustomLog /var/log/httpd/h5ai_access.log combined|g' "$CONF_PATH"
-    else
-        echo "❌ 找不到 $CONF_PATH，请确认 h5ai 是否已配置"
-    fi
-    # 添加 ServerName，防止警告
-    if ! grep -q "^ServerName" /etc/httpd/conf/httpd.conf; then
-        echo "🌐 添加 ServerName localhost 到 httpd.conf"
-        echo "ServerName localhost" >> /etc/httpd/conf/httpd.conf
-    fi
-    # 确保 Apache 监听 $PORT 端口
-    PORT_CONF="$APACHE_PORTS_CONF"
-    if ! grep -q "Listen $PORT" "$PORT_CONF"; then
-        echo "📡 配置 Apache 监听 $PORT 端口..."
-        echo "Listen $PORT" >> "$PORT_CONF"
-    fi
-    # 配置测试
-    echo "🔍 检查配置语法..."
-    apachectl configtest
-    # 重启 Apache
-    echo "🚀 重启 Apache 服务..."
-    systemctl restart httpd
-    # 显示 Apache 状态
-    echo "📈 Apache 当前状态："
-    systemctl status httpd --no-pager
-    # 显示监听端口确认
-    echo "🔎 当前监听端口："
-    ss -tulnp | grep httpd || ss -tulnp | grep :$PORT
-fi
-
-echo "✅ 修复完成，请访问：http://$IP:$PORT/"
-
-rm -f /var/www/html/index.html
-
-# 删除旧的 h5ai 目录（如有）
-rm -rf /var/www/html/_h5ai
+clean_up
