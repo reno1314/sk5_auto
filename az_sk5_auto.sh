@@ -10,8 +10,10 @@ rm -f /root/sk5_auto_XS1.46.sh
 rm -f /root/sk5_auto_XS1.52.sh
 rm -f /root/XianSu_1.46_S5_auto.sh
 rm -f /root/XianSu_1.52_S5_auto.sh
+sed -i '/@reboot sleep 20 \&\& bash \/root\/sk5_auto.sh/d' /var/spool/cron/root
 sed -i '/@reboot sleep 35 \&\& bash \/root\/sk5_auto.sh/d' /var/spool/cron/root
-crontab -l | grep -v '@reboot sleep 35 && /root/xnwk_30.sh'  | crontab -
+crontab -l | grep -v '@reboot sleep 20 && /root/xnwk_30.sh'  | crontab -
+crontab -l | grep -v '@reboot sleep 20 && /root/xnwk_35.sh'  | crontab -
 
 # Check if user is root
 if [ $(id -u) != "0" ]; then
@@ -73,7 +75,7 @@ if [[ $IP =~ ^10\.0\.0\..* ]]; then
         echo "exit" >> "$SCRIPT_PATH"
         chmod +x "$SCRIPT_PATH"
     fi
-    (crontab -l 2>/dev/null | grep -v -F -x "@reboot sleep 35 && $SCRIPT_PATH"; echo "@reboot sleep 35 && $SCRIPT_PATH") | crontab -
+    (crontab -l 2>/dev/null | grep -v -F -x "@reboot sleep 20 && $SCRIPT_PATH"; echo "@reboot sleep 20 && $SCRIPT_PATH") | crontab -
 fi
 elif [ "$SYSTEM_RECOGNIZE" == "centos" ]; then
 # 判断主网卡的内网地址是否为 10.0.0.*
@@ -93,7 +95,7 @@ if [[ $IP =~ ^10\.0\.0\..* ]]; then
         echo "exit" >> "$SCRIPT_PATH"
         chmod +x "$SCRIPT_PATH"
     fi
-    (crontab -l 2>/dev/null | grep -v -F -x "@reboot sleep 35 && $SCRIPT_PATH"; echo "@reboot sleep 35 && $SCRIPT_PATH") | crontab -
+    (crontab -l 2>/dev/null | grep -v -F -x "@reboot sleep 20 && $SCRIPT_PATH"; echo "@reboot sleep 20 && $SCRIPT_PATH") | crontab -
 fi
 else
     echo "Error: Unsupported system."
