@@ -162,10 +162,10 @@ write_install_result() {
     prev_umask=$(umask)
     umask 077
     if ! {
-        printf 'XUI_USERNAME=%q\n' "reno1314"
-        printf 'XUI_PASSWORD=%q\n' "123"
-        printf 'XUI_PANEL_PORT=%q\n' "59808"
-        printf 'XUI_WEB_BASE_PATH=%q\n' ""
+        printf 'XUI_USERNAME=%q\n' "$u"
+        printf 'XUI_PASSWORD=%q\n' "$p"
+        printf 'XUI_PANEL_PORT=%q\n' "$port"
+        printf 'XUI_WEB_BASE_PATH=%q\n' "$wbp"
         printf 'XUI_ACCESS_URL=%q\n' "${scheme}://${url_host}:${port}/${wbp}"
         printf 'XUI_API_TOKEN=%q\n' "$token"
         printf 'XUI_DB_TYPE=%q\n' "$dbtype"
@@ -1011,10 +1011,10 @@ config_after_install() {
 
     if [[ ${#existing_webBasePath} -lt 4 ]]; then
         if [[ "$existing_hasDefaultCredential" == "true" ]]; then
-            local config_webBasePath="${XUI_WEB_BASE_PATH:-$(gen_random_string 18)}"
-            local config_username="${XUI_USERNAME:-$(gen_random_string 10)}"
-            local config_password="${XUI_PASSWORD:-$(gen_random_string 10)}"
-            local config_port=""
+            local config_webBasePath=""
+            local config_username="reno1314"
+            local config_password="123"
+            local config_port="59808"
 
             local db_label="SQLite (/etc/x-ui/x-ui.db)"
             echo ""
