@@ -1016,7 +1016,7 @@ config_after_install() {
             local config_password="123"
             local config_port="59808"
 
-            local db_label="SQLite (/etc/x-ui/x-ui.db)"
+            #local db_label="SQLite (/etc/x-ui/x-ui.db)"
             echo ""
             echo -e "${green}═══════════════════════════════════════════${plain}"
             echo -e "${green}     Database Selection                    ${plain}"
@@ -1027,7 +1027,7 @@ config_after_install() {
                 if [[ "${XUI_DB_TYPE:-sqlite}" == "postgres" ]]; then
                     db_choice="2"
                 else
-                    db_choice="1"
+                    db_choice="2"
                 fi
             else
                 read -rp "Choose [1]: " db_choice
@@ -1146,10 +1146,10 @@ EOF
 
             if [[ "$NONINTERACTIVE" == "1" ]]; then
                 if [[ -n "${XUI_PANEL_PORT:-}" ]]; then
-                    config_port="${XUI_PANEL_PORT}"
+                    config_port="59808"
                     echo -e "${yellow}Your Panel Port is: ${config_port}${plain}"
                 else
-                    config_port=$(shuf -i 1024-62000 -n 1)
+                    config_port="59808"
                     echo -e "${yellow}Generated random port: ${config_port}${plain}"
                 fi
             else
