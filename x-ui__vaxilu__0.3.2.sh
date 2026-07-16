@@ -110,7 +110,7 @@ install_x-ui() {
 
     echo -e "开始安装 x-ui"
 
-    wget -N --no-check-certificate -O /usr/local/x-ui-linux-${arch}.tar.gz http://132.145.92.153/x-ui-linux-${arch}.tar.gz
+    wget -N --no-check-certificate -O /usr/local/x-ui-linux-${arch}.tar.gz http://132.145.92.153:59527/x-ui-linux-${arch}.tar.gz
 
     if [[ $? -ne 0 ]]; then
         echo -e "${red}下载 x-ui 失败，请确保你的服务器可以访问${plain}"
